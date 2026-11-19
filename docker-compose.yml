@@ -1,0 +1,23 @@
+# Ingegnere F1 · l'ingegnere di pista per F1 25 sulla PS5
+# UDP 20777: telemetria dalla PS5 · 8777: la web app per il cellulare
+services:
+  ingegnere-f1:
+    build: .
+    image: ingegnere-f1:locale
+    container_name: ingegnere-f1
+    restart: unless-stopped
+    ports:
+      - "20777:20777/udp"
+      - "8777:8777"
+    volumes:
+      - ./dati:/dati
+      - ./voci:/voci:ro
+    environment:
+      - TZ=${TZ:-UTC}          # il fuso orario si mette in .env (locale, fuori da git)
+    mem_limit: 700m
+    cpus: 2.0
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"

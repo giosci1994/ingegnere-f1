@@ -1,0 +1,8 @@
+dati/
+__pycache__/
+*.pyc
+voci/*.onnx
+voci/*.onnx.json
+prove/schermate/
+SCHELETRO.md
+.env

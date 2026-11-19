@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d0f12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ingegnere F1">
+<title>Ingegnere F1</title>
+<link rel="manifest" href="/static/manifest.json">
+<link rel="icon" href="/static/icona.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/static/icona-180.png">
+<link rel="stylesheet" href="/static/stile.css">
+</head>
+<body>
+<header>
+  <div class="titolo">
+    <span class="logo">📻</span>
+    <div>
+      <h1>Ingegnere F1</h1>
+      <div id="ps5" class="ps5 spento">PS5: in attesa…</div>
+    </div>
+  </div>
+</header>
+
+<nav>
+  <button data-vista="radio" class="attivo">Radio</button>
+  <button data-vista="avvisi">Avvisi</button>
+  <button data-vista="gare">Riassunti</button>
+  <button data-vista="traiettoria">Traiettoria</button>
+  <button data-vista="info">Info</button>
+</nav>
+
+<main>
+  <!-- RADIO -->
+  <section id="v-radio" class="vista attiva">
+    <button id="collega" class="grande">📻 Collega la radio</button>
+    <p id="nota-radio" class="nota">Tocca una volta: su iPhone l'audio parte solo dopo un tocco. Tieni la pagina aperta e in primo piano.</p>
+
+    <div id="cruscotto" class="cruscotto">
+      <div class="cella"><span class="eti">Posizione</span><b id="c-pos">–</b></div>
+      <div class="cella"><span class="eti">Giro</span><b id="c-giro">–</b></div>
+      <div class="cella"><span class="eti">Davanti</span><b id="c-davanti">–</b></div>
+      <div class="cella"><span class="eti">Dietro</span><b id="c-dietro">–</b></div>
+      <div class="cella"><span class="eti">Gomme</span><b id="c-gomme">–</b></div>
+      <div class="cella"><span class="eti">Usura</span><b id="c-usura">–</b></div>
+      <div class="cella"><span class="eti">Benzina</span><b id="c-benzina">–</b></div>
+      <div class="cella"><span class="eti">Batteria</span><b id="c-batteria">–</b></div>
+    </div>
+
+    <h2>Ultime chiamate</h2>
+    <ul id="frasi" class="frasi"><li class="vuoto">Ancora niente.</li></ul>
+  </section>
+
+  <!-- AVVISI -->
+  <section id="v-avvisi" class="vista">
+    <p class="nota">Le impostazioni restano sul server e valgono per tutti i telefoni collegati: sentono tutti la stessa radio.</p>
+
+    <h2>Che cosa dice</h2>
+    <div id="categorie" class="interruttori"></div>
+
+    <h2>Quanto parla</h2>
+    <div class="segmenti largo" id="verbosita">
+      <button data-v="1">Essenziale</button>
+      <button data-v="2">Normale</button>
+      <button data-v="3">Tutto</button>
+    </div>
+
+    <h2>Voce</h2>
+    <div class="segmenti largo" id="voce">
+      <button data-voce="riccardo">Riccardo</button>
+      <button data-voce="paola">Paola</button>
+    </div>
+    <label class="cursore">Volume <output id="o-volume"></output>
+      <input type="range" id="volume" min="20" max="200" step="10"></label>
+    <label class="cursore">Velocità <output id="o-velocita"></output>
+      <input type="range" id="velocita" min="0.8" max="1.3" step="0.05"></label>
+    <label class="cursore">Effetto radio <output id="o-effetto"></output>
+      <input type="range" id="effetto" min="0" max="3" step="1"></label>
+
+    <div class="prova">
+      <input id="testo-prova" type="text" maxlength="200" placeholder="Box, box questo giro.">
+      <button id="prova-voce">▶︎ Prova la voce</button>
+    </div>
+    <h2>Dopo la sessione</h2>
+    <label class="cursore">Chi guida (si salva con i giri, per confrontarli)
+      <input type="text" id="pilota" maxlength="24" class="campo"></label>
+    <label class="interruttore"><input type="checkbox" id="salva_giri"><span>Salva i giri per la traiettoria</span></label>
+    <label class="interruttore"><input type="checkbox" id="assetto"><span>Consigli d'assetto nel riassunto</span></label>
+    <p id="salvato" class="nota"></p>
+  </section>
+
+  <!-- TRAIETTORIA -->
+  <section id="v-traiettoria" class="vista">
+    <p class="nota">Il giro rosso confrontato con il giro grigio (di partenza il tuo migliore). Anche giri di sessioni diverse o di chi guida un'altra volta.</p>
+    <label class="cursore">Pista <select id="t-pista" class="campo"></select></label>
+    <label class="cursore"><span class="pallino rosso"></span>Giro <select id="t-a" class="campo"></select></label>
+    <label class="cursore"><span class="pallino grigio"></span>Confronto con <select id="t-b" class="campo"></select></label>
+    <div id="t-curve" class="curve-bottoni"></div>
+    <div id="t-mappa" class="mappa"></div>
+    <div id="t-tabella" class="tabella"></div>
+  </section>
+
+  <!-- DOPO LA GARA -->
+  <section id="v-gare" class="vista">
+    <div class="riga-scelta">
+      <h2>Riassunti</h2>
+      <button id="crea-riassunto" class="piccolo">Crea adesso</button>
+    </div>
+    <ul id="elenco-gare" class="elenco"></ul>
+    <div id="dettaglio-gara"></div>
+  </section>
+
+  <!-- INFO -->
+  <section id="v-info" class="vista">
+    <h2>Collegamento</h2>
+    <dl id="diagnosi" class="diagnosi"></dl>
+    <h2>Registrazioni</h2>
+    <label class="interruttore"><input type="checkbox" id="registra"><span>Registra le sessioni (per le prove)</span></label>
+    <ul id="registrazioni" class="elenco piccolo"></ul>
+    <h2>Sulla PS5</h2>
+    <p class="nota">Impostazioni del gioco → Telemetria: UDP attivo, broadcast spento, IP <b id="ip-server">del server</b>, porta 20777, frequenza 20 Hz, formato UDP 2026.</p>
+  </section>
+</main>
+
+<audio id="radio" preload="auto"></audio>
+<video id="sveglia" muted playsinline loop preload="auto" aria-hidden="true">
+  <source src="/static/sveglia.mp4" type="video/mp4">
+  <source src="/static/sveglia.webm" type="video/webm">
+</video>
+<script src="/static/app.js"></script>
+</body>
+</html>
