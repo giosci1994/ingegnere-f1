@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en"
+  data-en-title="Ingegnere F1 — A race engineer for F1 25, on your phone"
+  data-it-title="Ingegnere F1 — Un ingegnere di pista per F1 25, sul telefono">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#070b0a" />
+  <meta name="description"
+    content="A home-made race engineer for EA SPORTS F1 25: it reads the UDP telemetry and talks to you in Italian, with a team-radio effect, on a web app for your phone. Local, in one Docker container."
+    data-en="A home-made race engineer for EA SPORTS F1 25: it reads the UDP telemetry and talks to you in Italian, with a team-radio effect, on a web app for your phone. Local, in one Docker container."
+    data-it="Un ingegnere di pista fatto in casa per EA SPORTS F1 25: legge la telemetria UDP e ti parla in italiano, con l'effetto del team radio, su una web app per il telefono. In locale, in un container Docker." />
+  <title>Ingegnere F1 — A race engineer for F1 25, on your phone</title>
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Ingegnere F1 — A race engineer for F1 25, on your phone" />
+  <meta property="og:description"
+    content="Reads the game's UDP telemetry and talks to you on the radio, in Italian. Strategy, braking points, setup hints. Local, private, one Docker container." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://giosci1994.github.io/ingegnere-f1/" />
+  <meta property="og:image" content="https://giosci1994.github.io/ingegnere-f1/social-preview.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%A7%3C/text%3E%3C/svg%3E" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="./css/style.css" />
+  <script src="./js/main.js" defer></script>
+</head>
+
+<body>
+  <div class="bg">
+    <div class="bg-grid"></div>
+  </div>
+
+  <header class="nav">
+    <div class="container nav-inner">
+      <div class="brand">
+        <a class="brand-main" href="#top" aria-label="Ingegnere F1">
+          <span class="brand-mark" aria-hidden="true">🎧</span>
+          <span>Ingegnere F1</span>
+        </a>
+      </div>
+
+      <nav class="nav-links" aria-label="Primary">
+        <a href="#features" data-en="Features" data-it="Funzioni">Features</a>
+        <a href="#how" data-en="How it works" data-it="Come funziona">How it works</a>
+        <a href="#install" data-en="Install" data-it="Installa">Install</a>
+        <a href="#privacy" data-en="Privacy" data-it="Privacy">Privacy</a>
+      </nav>
+
+      <div class="nav-cta">
+        <button id="lang-toggle" class="btn ghost small lang-btn" type="button" aria-label="Passa all'italiano">IT</button>
+        <a class="btn primary small" href="https://github.com/giosci1994/ingegnere-f1" target="_blank"
+          rel="noreferrer">GitHub</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="top" class="container">
+    <section class="hero">
+      <div class="hero-left">
+        <div class="kicker">
+          <span class="dot"></span>
+          <span data-en="F1 25 · UDP telemetry · Local voice" data-it="F1 25 · Telemetria UDP · Voce locale">F1 25 · UDP telemetry · Local voice</span>
+        </div>
+
+        <h1 data-en="Your race engineer, <span class=&quot;accent-text&quot;>on the radio</span>."
+          data-it="Il tuo ingegnere di pista, <span class=&quot;accent-text&quot;>in radio</span>.">
+          Your race engineer, <span class="accent-text">on the radio</span>.
+        </h1>
+
+        <p class="lead"
+          data-en="A home-made race engineer for <b>EA SPORTS F1 25</b> (2026 Season Pack). It reads the game's UDP telemetry, decides what is worth saying and says it <b>in Italian</b>, with a team-radio effect, on a web app for your phone. Everything runs in one Docker container at home."
+          data-it="Un ingegnere di pista fatto in casa per <b>EA SPORTS F1 25</b> (2026 Season Pack). Legge la telemetria UDP del gioco, decide che cosa vale la pena dire e lo dice <b>in italiano</b>, con l'effetto del team radio, su una web app per il telefono. Tutto in un container Docker, a casa.">
+          A home-made race engineer for <b>EA SPORTS F1 25</b> (2026 Season Pack). It reads the game's UDP
+          telemetry, decides what is worth saying and says it <b>in Italian</b>, with a team-radio effect, on a
+          web app for your phone. Everything runs in one Docker container at home.
+        </p>
+
+        <div class="hero-actions">
+          <a class="btn primary" href="#install" data-en="Install" data-it="Installa">Install</a>
+          <a class="btn ghost" href="https://github.com/giosci1994/ingegnere-f1" target="_blank"
+            rel="noreferrer" data-en="View on GitHub" data-it="Vedi su GitHub">View on GitHub</a>
+        </div>
+
+        <div class="status-note">
+          <span aria-hidden="true">ℹ️</span>
+          <span data-en="<b>Unofficial fan project.</b> Not affiliated with Formula 1, the FIA, Electronic Arts or Codemasters. No logos, fonts, images or audio from the game or the championship."
+            data-it="<b>Progetto non ufficiale, di un appassionato.</b> Non affiliato a Formula 1, FIA, Electronic Arts o Codemasters. Nessun logo, carattere, immagine o audio del gioco o del campionato.">
+            <b>Unofficial fan project.</b> Not affiliated with Formula 1, the FIA, Electronic Arts or Codemasters.
+            No logos, fonts, images or audio from the game or the championship.
+          </span>
+        </div>
+
+        <div class="topics" role="list" aria-label="Topics">
+          <span class="pill" role="listitem">f1-25</span>
+          <span class="pill" role="listitem">telemetry</span>
+          <span class="pill" role="listitem">udp</span>
+          <span class="pill" role="listitem">piper-tts</span>
+          <span class="pill" role="listitem">pwa</span>
+          <span class="pill" role="listitem">docker</span>
+        </div>
+      </div>
+
+      <div class="hero-right">
+        <div class="window app" aria-hidden="true">
+          <div class="win-bar">
+            <span class="win-title">📻 Radio · P4 · <span data-en="Lap" data-it="Giro">Lap</span> 12/20</span>
+          </div>
+          <div class="app-body">
+            <div class="app-side">
+              <div class="app-card active">
+                <b>Radio</b>
+                <span data-en="What it just said" data-it="Cosa ha appena detto">What it just said</span>
+              </div>
+              <div class="app-card">
+                <b data-en="Calls" data-it="Avvisi">Calls</b>
+                <span data-en="16 groups, on/off" data-it="16 gruppi, acceso/spento">16 groups, on/off</span>
+              </div>
+              <div class="app-card">
+                <b data-en="Summaries" data-it="Riassunti">Summaries</b>
+                <span data-en="After the session" data-it="Dopo la sessione">After the session</span>
+              </div>
+              <div class="app-card">
+                <b data-en="Racing line" data-it="Traiettoria">Racing line</b>
+                <span data-en="Two laps, overlaid" data-it="Due giri, sovrapposti">Two laps, overlaid</span>
+              </div>
+            </div>
+            <div class="app-main">
+              <div class="app-top">
+                <span>Monza</span>
+                <span class="switch"><i></i><span data-en="Radio on" data-it="Radio accesa">Radio on</span></span>
+              </div>
+              <div class="result">
+                <span class="g" style="color: var(--bad)">!</span>
+                <div><b data-en="Strategy" data-it="Strategia">Strategy</b><span>«Box questo giro, esci P5 davanti a Verdi.»</span></div>
+              </div>
+              <div class="result">
+                <span class="g" style="color: var(--warn)">◐</span>
+                <div><b data-en="Braking" data-it="Frenata">Braking</b><span>«Curva 4, perdi 3 decimi: hai frenato 30 metri prima.»</span></div>
+              </div>
+              <div class="result">
+                <span class="g" style="color: var(--ok)">✓</span>
+                <div><b data-en="Gaps" data-it="Distacchi">Gaps</b><span>«Distacco davanti 1,2. Dietro 2,8.»</span></div>
+              </div>
+              <div class="result">
+                <span class="g" style="color: var(--win)">i</span>
+                <div><b data-en="Active aero" data-it="Ali mobili">Active aero</b><span>«Ali in modalità rettilineo!»</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="mock-caption" data-en="illustration · the radio speaks Italian; driver names are made up"
+          data-it="illustrazione · la radio parla italiano; i nomi dei piloti sono inventati">illustration · the radio speaks Italian; driver names are made up</p>
+      </div>
+    </section>
+
+    <section id="features" class="section">
+      <div class="section-head reveal">
+        <span class="section-label" data-en="// what it does" data-it="// cosa fa">// what it does</span>
+        <h2 data-en="Talks when it matters, stays quiet otherwise" data-it="Parla quando serve, altrimenti sta zitto">Talks when it matters, stays quiet otherwise</h2>
+        <p data-en="One phrase at a time, by priority, no overlaps. Three verbosity levels and a switch for every group of calls."
+          data-it="Una frase alla volta, per priorità, senza sovrapposizioni. Tre livelli di loquacità e un interruttore per ogni gruppo di avvisi.">One phrase at a time, by priority, no overlaps. Three verbosity levels and a switch for every group of calls.</p>
+      </div>
+
+      <div class="cards-grid">
+        <article class="card reveal">
+          <span class="card-icon">📡</span>
+          <h3 data-en="Live calls" data-it="Avvisi in diretta">Live calls</h3>
+          <p data-en="Everything the telemetry knows, said at the right moment." data-it="Tutto quello che sa la telemetria, detto al momento giusto.">Everything the telemetry knows, said at the right moment.</p>
+          <ul>
+            <li data-en="Flags, safety car, VSC, penalties" data-it="Bandiere, safety car, VSC, penalità">Flags, safety car, VSC, penalties</li>
+            <li data-en="Tyres, fuel, battery, damage, weather" data-it="Gomme, benzina, batteria, danni, meteo">Tyres, fuel, battery, damage, weather</li>
+            <li data-en="Gaps, positions, laps to go, lap times" data-it="Distacchi, posizioni, giri mancanti, tempi">Gaps, positions, laps to go, lap times</li>
+          </ul>
+        </article>
+
+        <article class="card reveal">
+          <span class="card-icon">🧮</span>
+          <h3 data-en="Strategy" data-it="Strategia">Strategy</h3>
+          <p data-en="Pit loss measured on each track, degradation from your clean laps." data-it="Tempo perso al box misurato su ogni pista, degrado dai tuoi giri puliti.">Pit loss measured on each track, degradation from your clean laps.</p>
+          <ul>
+            <li data-en="Undercut and overcut calls" data-it="Avvisi di undercut e overcut">Undercut and overcut calls</li>
+            <li data-en="Where you rejoin after a stop" data-it="Dove rientri dopo la sosta">Where you rejoin after a stop</li>
+            <li data-en="Estimates are said as estimates" data-it="Le stime sono dette come stime">Estimates are said as estimates</li>
+          </ul>
+        </article>
+
+        <article class="card reveal">
+          <span class="card-icon">🏁</span>
+          <h3 data-en="Braking and exits" data-it="Frenate e uscite">Braking and exits</h3>
+          <p data-en="Compared with your best lap, one short call on the next straight." data-it="Confrontate con il tuo giro migliore, una frase breve sul rettilineo dopo.">Compared with your best lap, one short call on the next straight.</p>
+          <ul>
+            <li data-en="Braking point, minimum speed, throttle" data-it="Punto di frenata, velocità minima, gas">Braking point, minimum speed, throttle</li>
+            <li data-en="Only when you lose time and there is a cause" data-it="Solo se perdi tempo e c'è una causa">Only when you lose time and there is a cause</li>
+          </ul>
+        </article>
+
+        <article class="card reveal">
+          <span class="card-icon">📈</span>
+          <h3 data-en="Racing line" data-it="Traiettoria">Racing line</h3>
+          <p data-en="Every lap stored as a compact trace. Overlay any two laps of a track, from any session or driver."
+            data-it="Ogni giro salvato come traccia compatta. Sovrapponi due giri qualsiasi di una pista, di qualsiasi sessione o pilota.">Every lap stored as a compact trace. Overlay any two laps of a track, from any session or driver.</p>
+        </article>
+
+        <article class="card reveal">
+          <span class="card-icon">🔧</span>
+          <h3 data-en="Session summary" data-it="Riassunto della sessione">Session summary</h3>
+          <p data-en="Laps, sectors, ideal lap, stops, errors, and setup hints, each backed by the data point behind it."
+            data-it="Giri, settori, giro ideale, soste, errori e consigli d'assetto, ognuno con il dato che lo sostiene.">Laps, sectors, ideal lap, stops, errors, and setup hints, each backed by the data point behind it.</p>
+        </article>
+
+        <article class="card reveal">
+          <span class="card-icon">🪽</span>
+          <h3 data-en="2026 rules" data-it="Regole 2026">2026 rules</h3>
+          <p data-en="UDP format 2026 (24 cars, active aero, Overtake Mode), with 2025 as a fallback."
+            data-it="Formato UDP 2026 (24 auto, ali mobili, Overtake Mode), con il 2025 di riserva.">UDP format 2026 (24 cars, active aero, Overtake Mode), with 2025 as a fallback.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="how" class="section">
+      <div class="section-head reveal">
+        <span class="section-label" data-en="// how it works" data-it="// come funziona">// how it works</span>
+        <h2 data-en="Console, home server, phone" data-it="Console, server di casa, telefono">Console, home server, phone</h2>
+        <p data-en="The console audio is left alone: the engineer talks from your phone."
+          data-it="L'audio della console resta com'è: l'ingegnere parla dal telefono.">The console audio is left alone: the engineer talks from your phone.</p>
+      </div>
+
+      <div class="steps">
+        <div class="step reveal">
+          <span class="step-n">1</span>
+          <h3 data-en="The game sends" data-it="Il gioco manda">The game sends</h3>
+          <p data-en="F1 25 sends UDP telemetry at 20 Hz to the server, port <code>20777</code>."
+            data-it="F1 25 manda la telemetria UDP a 20 Hz al server, porta <code>20777</code>.">F1 25 sends UDP telemetry at 20 Hz to the server, port <code>20777</code>.</p>
+        </div>
+        <div class="step reveal">
+          <span class="step-n">2</span>
+          <h3 data-en="The engineer decides" data-it="L'ingegnere decide">The engineer decides</h3>
+          <p data-en="Rules run five times a second; the radio queue picks one phrase by priority, and Piper speaks it locally."
+            data-it="Le regole girano cinque volte al secondo; la fila della radio sceglie una frase per priorità, e Piper la dice in locale.">Rules run five times a second; the radio queue picks one phrase by priority, and Piper speaks it locally.</p>
+        </div>
+        <div class="step reveal">
+          <span class="step-n">3</span>
+          <h3 data-en="Your phone plays" data-it="Il telefono suona">Your phone plays</h3>
+          <p data-en="Open the page, tap <b>«Collega la radio»</b> once, keep it in the foreground. Android and iPhone."
+            data-it="Apri la pagina, tocca <b>«Collega la radio»</b> una volta, tienila in primo piano. Android e iPhone.">Open the page, tap <b>«Collega la radio»</b> once, keep it in the foreground. Android and iPhone.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="install" class="section">
+      <div class="section-head reveal">
+        <span class="section-label" data-en="// install" data-it="// installa">// install</span>
+        <h2 data-en="One container, on any amd64 box" data-it="Un container, su qualsiasi macchina amd64">One container, on any amd64 box</h2>
+        <p data-en="Docker and Docker Compose. The two Italian Piper voices are downloaded separately (about 90 MB)."
+          data-it="Docker e Docker Compose. Le due voci italiane di Piper si scaricano a parte (circa 90 MB).">Docker and Docker Compose. The two Italian Piper voices are downloaded separately (about 90 MB).</p>
+      </div>
+
+      <div class="quickstart reveal">
+<pre><code data-en="git clone https://github.com/giosci1994/ingegnere-f1.git
+cd ingegnere-f1
+# put the riccardo (x_low) and paola (medium) Piper voices in ./voci
+docker compose up -d --build"
+  data-it="git clone https://github.com/giosci1994/ingegnere-f1.git
+cd ingegnere-f1
+# metti le voci Piper riccardo (x_low) e paola (medium) in ./voci
+docker compose up -d --build">git clone https://github.com/giosci1994/ingegnere-f1.git
+cd ingegnere-f1
+# put the riccardo (x_low) and paola (medium) Piper voices in ./voci
+docker compose up -d --build</code></pre>
+        <p class="hint" data-en="In the game (Settings → Telemetry): UDP on, broadcast off, the server's IP address, port 20777, 20 Hz, UDP format 2026. Then open <code>http://&lt;server-ip&gt;:8777</code> on the phone."
+          data-it="Nel gioco (Impostazioni → Telemetria): UDP attivo, broadcast spento, l'IP del server, porta 20777, 20 Hz, formato UDP 2026. Poi apri <code>http://&lt;ip-del-server&gt;:8777</code> sul telefono.">In the game (Settings → Telemetry): UDP on, broadcast off, the server's IP address, port 20777, 20 Hz, UDP format 2026. Then open <code>http://&lt;server-ip&gt;:8777</code> on the phone.</p>
+      </div>
+    </section>
+
+    <section id="privacy" class="section">
+      <div class="section-head reveal">
+        <span class="section-label" data-en="// privacy" data-it="// privacy">// privacy</span>
+        <h2 data-en="Nothing leaves your home" data-it="Niente esce da casa">Nothing leaves your home</h2>
+      </div>
+
+      <div class="cards-grid">
+        <article class="card reveal">
+          <span class="card-icon">🏠</span>
+          <h3 data-en="Local only" data-it="Solo in locale">Local only</h3>
+          <p data-en="No cloud, no accounts, no analytics. The voice is synthesized on your server; no cloned voices, no broadcast audio."
+            data-it="Niente cloud, niente account, niente statistiche. La voce nasce sul tuo server; nessuna voce clonata, nessun audio della TV.">No cloud, no accounts, no analytics. The voice is synthesized on your server; no cloned voices, no broadcast audio.</p>
+        </article>
+        <article class="card reveal">
+          <span class="card-icon">🔕</span>
+          <h3 data-en="Telemetry off" data-it="Telemetria spenta">Telemetry off</h3>
+          <p data-en="onnxruntime's usage telemetry is switched off in the image and in the code."
+            data-it="La telemetria d'uso di onnxruntime è spenta nell'immagine e nel codice.">onnxruntime's usage telemetry is switched off in the image and in the code.</p>
+        </article>
+        <article class="card reveal">
+          <span class="card-icon">🔒</span>
+          <h3 data-en="Home network" data-it="Rete di casa">Home network</h3>
+          <p data-en="There is no login: keep ports 8777 and 20777 on your home network, never on the internet."
+            data-it="Non c'è login: tieni le porte 8777 e 20777 nella rete di casa, mai su internet.">There is no login: keep ports 8777 and 20777 on your home network, never on the internet.</p>
+        </article>
+      </div>
+
+      <div class="cta-box reveal">
+        <div>
+          <h3 data-en="Open source, AGPL-3.0" data-it="Open source, AGPL-3.0">Open source, AGPL-3.0</h3>
+          <p data-en="Credits and third-party licenses (Piper, the voices, onnxruntime, f1-packets) are in the README."
+            data-it="Crediti e licenze di terze parti (Piper, le voci, onnxruntime, f1-packets) sono nel README.">Credits and third-party licenses (Piper, the voices, onnxruntime, f1-packets) are in the README.</p>
+        </div>
+        <a class="btn primary" href="https://github.com/giosci1994/ingegnere-f1#-credits-and-third-party-software" target="_blank"
+          rel="noreferrer" data-en="Read the README" data-it="Leggi il README">Read the README</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="container footer">
+    <div class="footer-left">
+      <span aria-hidden="true">🎧</span>
+      <span>© <span id="year">2026</span> giosci1994 · <span data-en="AGPL-3.0 License · unofficial, not affiliated with F1, FIA or EA" data-it="Licenza AGPL-3.0 · non ufficiale, non affiliato a F1, FIA o EA">AGPL-3.0 License · unofficial, not affiliated with F1, FIA or EA</span></span>
+    </div>
+    <div class="footer-right">
+      <a href="https://github.com/giosci1994/ingegnere-f1" target="_blank" rel="noreferrer">GitHub</a>
+      <a href="https://buymeacoffee.com/giosci1994u" target="_blank" rel="noreferrer">☕ Buy Me a Coffee</a>
+    </div>
+  </footer>
+</body>
+
+</html>

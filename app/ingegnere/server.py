@@ -51,6 +51,7 @@ class App:
         self.clienti = set()         # i telefoni collegati: sentono tutti la stessa radio
         self.ultimo_riassunto = {}
         self.cache_pronta = 0
+        self.giro_cache = 0          # cresce a ogni giro della cache: solo l'ultimo scrive cache_pronta
 
     # ---------- UDP ----------
     def datagramma(self, buf, addr):
@@ -180,15 +181,19 @@ class App:
         loop = asyncio.get_running_loop()
         v = self.imp
         firma = (v["voce"], v["velocita"], v["effetto_radio"])
+        self.giro_cache += 1
+        giro = self.giro_cache
         self.cache_pronta = 0
         t0 = time.monotonic()
         for i, frase in enumerate(FRASI_FISSE, 1):
-            if firma != (v["voce"], v["velocita"], v["effetto_radio"]):
-                return       # le impostazioni sono cambiate: ricomincia l'altro giro
+            if giro != self.giro_cache:
+                return       # le impostazioni sono cambiate: continua l'altro giro
             try:
                 await loop.run_in_executor(None, self.voce.sintetizza, frase, *firma)
             except Exception:
                 log.exception("cache: %s", frase)
+            if giro != self.giro_cache:
+                return       # finito dopo il giro nuovo: cache_pronta è sua, non si tocca
             self.cache_pronta = round(100 * i / len(FRASI_FISSE))
         log.info("cache delle frasi fisse pronta (%s) in %.1f s", firma, time.monotonic() - t0)
 
