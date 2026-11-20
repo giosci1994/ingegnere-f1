@@ -43,11 +43,9 @@ class Tracciatore:
 
     def __init__(self):
         self.giro = None
-        self.ultimo_t = None
 
     def reset(self):
         self.giro = None
-        self.ultimo_t = None
 
     def campione(self, st, idx):
         """Da chiamare a ogni pacchetto di telemetria. Restituisce il Giro appena finito, o None."""
@@ -171,14 +169,17 @@ class Biblioteca:
                 except OSError:
                     pass
         nuovo = [m for m in ind if m["id"] in tieni]
-        with open(os.path.join(cart, "indice.json"), "w", encoding="utf-8") as f:
+        with open(os.path.join(cart, "indice.json.tmp"), "w", encoding="utf-8") as f:
             json.dump(nuovo, f, ensure_ascii=False)
+        os.replace(os.path.join(cart, "indice.json.tmp"), os.path.join(cart, "indice.json"))
 
     def piste(self):
         if not os.path.isdir(self.cartella):
             return []
         out = []
         for n in sorted(os.listdir(self.cartella)):
+            if not n.lstrip("-").isdigit():
+                continue
             ind = self._indice(os.path.join(self.cartella, n))
             if ind:
                 out.append({"pista": int(n), "nome": P.PISTE.get(int(n), f"pista {n}"), "giri": len(ind)})

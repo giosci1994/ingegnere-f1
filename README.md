@@ -58,6 +58,8 @@ small web app for your phone. Everything runs locally in one Docker container.**
   repeat).
 - **Pronunciation dictionary** for names and English terms, editable from the page with a
   «Prova» (try) button.
+- **Responsive page**: phone (portrait and landscape), tablet and PC, with more columns on wide
+  screens.
 - **A real radio**: one phrase at a time, priorities (safety > box/penalties >
   tyres/fuel/damage/weather > gaps/positions > the rest), no overlaps, cooldowns, three verbosity
   levels. Local voice ([Piper](https://github.com/OHF-Voice/piper1-gpl)) with beeps, band-pass,

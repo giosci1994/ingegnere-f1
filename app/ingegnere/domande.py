@@ -16,7 +16,6 @@ UDP Action 1 = 0x00100000 … UDP Action 12 = 0x80000000.
 import time
 
 from . import pacchetti as P
-from .impostazioni import DOMANDE, TASTI_PREDEFINITI  # noqa: F401
 from .ingegnere import Messaggio, dec, pct, pos, tempo_giro
 
 TASTI = {

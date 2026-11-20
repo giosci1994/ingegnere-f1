@@ -18,7 +18,7 @@ Read `README.md` first. If a local, untracked `SCHELETRO.md` exists next to this
 | Page | `web/` | single-page app, Italian UI |
 | Showcase | `docs/` | landing page (EN/IT, `data-en`/`data-it` + `js/main.js`) and `social-preview.html` → `social-preview.png` (1280×640, Firefox headless screenshot) |
 | CI | `.github/workflows/build.yml` | builds the image and runs the offline tests inside it on simulator races; keep it green. Update `CHANGELOG.md` with every change |
-| Tests | `prove/` | `prova_pacchetti.py`, `prova_offline.py`, `ascolta.py` (fake phone), `pagina.py` (real Firefox) |
+| Tests | `prove/` | `prova_pacchetti.py`, `prova_offline.py`, `prova_fase3.py`, `ascolta.py` (fake phone), `pagina.py` (real Firefox at 375, 768, 1024, 1440 px and 844×390: no JS errors, no horizontal scroll, touch targets ≥ 40 px) |
 
 ## Rules
 - Code, comments and UI are in Italian; keep it that way.

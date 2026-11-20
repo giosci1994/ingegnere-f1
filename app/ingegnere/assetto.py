@@ -16,7 +16,6 @@ dipende dal gioco: conta il confronto tra curve lente e veloci, e tra entrata e 
 import math
 import statistics
 
-from . import pacchetti as P
 
 PASSO = 3.6
 

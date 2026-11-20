@@ -84,6 +84,8 @@ class Impostazioni:
                         self.valori["tasti"][str(n)] = d or ""
             elif k in PREDEFINITE and k not in ("avvisi", "tasti"):
                 tipo = type(PREDEFINITE[k])
+                if tipo is bool and isinstance(v, str):     # «false» non deve diventare True
+                    v = v.strip().lower() in ("1", "true", "sì", "si", "on")
                 try:
                     v = tipo(v)
                 except (TypeError, ValueError):

@@ -31,7 +31,6 @@ class Registratore:
         self.t0 = 0.0
         self.ultimo = 0.0
         self.ultimo_flush = 0.0
-        self.scritti = 0
         self.ultimo_motion = 0.0
         self.chiuso = None        # (uid, nome, secondi registrati) dell'ultimo file chiuso, per riaprirlo
 
@@ -61,7 +60,6 @@ class Registratore:
                 self.f = gzip.open(os.path.join(self.cartella, self.nome), "wb", compresslevel=1)
                 self.f.write(MAGIA)
                 self.t0 = now
-                self.scritti = 0
                 self.ruota()
         elif nome_sessione != "sessione" and self.nome.endswith("-sessione.f1rec.gz"):
             nuovo = self.nome[:-len("-sessione.f1rec.gz")] + f"-{nome_sessione}.f1rec.gz"
@@ -72,7 +70,6 @@ class Registratore:
                 pass
         self.f.write(REC.pack(now - self.t0, len(buf)))
         self.f.write(buf)
-        self.scritti += 1
         self.ultimo = now
         if now - self.ultimo_flush > 5:
             self.f.flush()

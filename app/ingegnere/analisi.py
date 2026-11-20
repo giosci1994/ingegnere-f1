@@ -56,10 +56,12 @@ class Analisi:
         self._freni_giro = set()
 
     def _puo(self, chiave, attesa, t):
+        """Attesa prima di ripetere, sull'orologio che non torna indietro con i flashback
+        (`self.ora`): prima un flashback faceva ridire subito le stesse cose."""
         u = self.ultimo.get(chiave)
-        if u is not None and u <= t and t - u < attesa:
+        if u is not None and self.ora - u < attesa:
             return False
-        self.ultimo[chiave] = t
+        self.ultimo[chiave] = self.ora
         return True
 
     # ---------- a ogni pacchetto di telemetria ----------
@@ -247,7 +249,7 @@ class Analisi:
                                  livello=2, ttl=8, creato=t))
 
     def _freni(self, out, t, st, lap, idx):
-        """Freni caldi: si dice una volta; poi solo se peggiorano (50 °C in più) o dopo 5 minuti
+        """Freni caldi: si dice una volta; poi solo se peggiorano (50 °C in più) o dopo 10 minuti
         di gioco (che non tornano indietro con i flashback), e allora con la causa se c'è."""
         tel = st.auto(P.TELEMETRY, idx)
         if tel is None or lap.current_lap_num < 2 or lap.pit_status or tel.speed <= 80:
@@ -267,7 +269,7 @@ class Analisi:
                                  livello=2, ttl=10, fisso=True, creato=t))
             return
         peggio = caldo >= f["max"] + 50
-        if not peggio and self.ora - f["ora"] < 300:
+        if not peggio and self.ora - f["ora"] < 600:
             return
         self.freni = {"ora": self.ora, "max": max(caldo, f["max"] if peggio else 0)}
         davanti = (bt[2] + bt[3]) / 2 - (bt[0] + bt[1]) / 2
@@ -372,7 +374,6 @@ class Analisi:
         if davanti_i is not None and davanti_g is not None and davanti_g < 3.5 and deg and deg >= 0.04 \
                 and sta_all is not None:
             sua_eta = sta_all.cars[davanti_i].tyres_age_laps
-            ultima = stg.soste_viste.get(davanti_i, 0)
             if sua_eta >= mia_eta - 1 and sua_eta >= 5:
                 guadagno = deg * sua_eta - 0.8
                 if guadagno > davanti_g + 0.3 and (r["margine_dietro"] is None or r["margine_dietro"] >= 1.0) \

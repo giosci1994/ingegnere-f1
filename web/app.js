@@ -6,8 +6,6 @@
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
-const leggi = (k, d) => { try { return localStorage.getItem(k) ?? d; } catch { return d; } };
-const scrivi = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 
 let ws = null, wsAttesa = 1000, collegato = false;
 let coda = [], inOnda = null, impostazioni = null, wakeLock = null;
@@ -361,7 +359,12 @@ async function mostraGara(id) {
   const err = [];
   if (e.giri_non_validi && e.giri_non_validi.length) err.push(`giri non validi: ${e.giri_non_validi.join(", ")}`);
   if (e.avvertimenti_limiti) err.push(`avvertimenti limiti: ${e.avvertimenti_limiti}`);
-  if (e.penalita && e.penalita.length) err.push("penalità: " + e.penalita.map((p) => p.nome + (p.secondi ? ` ${p.secondi} s` : "")).join(", "));
+  if (e.penalita && e.penalita.length) {
+    // le stesse penalità una volta sola, con quante volte («avvertimento ×8»)
+    const conta = new Map();
+    e.penalita.forEach((p) => { const k = p.nome + (p.secondi ? ` ${p.secondi} s` : ""); conta.set(k, (conta.get(k) || 0) + 1); });
+    err.push("penalità: " + Array.from(conta, ([k, n]) => (n > 1 ? `${k} ×${n}` : k)).join(", "));
+  }
   if (e.contatti) err.push(`contatti: ${e.contatti}`);
   if (e.flashback) err.push(`flashback: ${e.flashback}`);
   righe.push("Errori: " + (err.length ? err.join(" · ") : "nessuno"));
@@ -410,7 +413,8 @@ function tabella(s, intest, righe) {
   intest.forEach((x) => { const th = document.createElement("th"); th.textContent = x; tr.append(th); });
   const thead = document.createElement("thead"); thead.append(tr); tbl.append(thead);
   const tb = document.createElement("tbody");
-  righe.forEach((r) => { const q = document.createElement("tr"); r.forEach((x) => q.append(td(x))); tb.append(q); });
+  // le colonne con le frasi («Perché», «Come migliorare») vanno a capo invece di allargare la tabella
+  righe.forEach((r) => { const q = document.createElement("tr"); r.forEach((x) => q.append(td(x, typeof x === "string" && x.length > 24 ? "testo" : ""))); tb.append(q); });
   tbl.append(tb); tab.append(tbl); s.append(tab);
 }
 const sec = (ms) => (ms == null ? "–" : (ms / 1000).toFixed(3));
@@ -538,8 +542,11 @@ function disegna() {
   svg += `<polyline points="${linea(d.a.linea)}" fill="none" stroke="#e10600" stroke-width="2.5" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>`;
   d.apici.forEach((c) => {
     if (c.x == null) return;
-    svg += `<circle cx="${c.x}" cy="${-c.z}" r="${fs * 0.6}" fill="#0d0f12" stroke="#eef1f5" vector-effect="non-scaling-stroke"/>`;
-    svg += `<text x="${c.x}" y="${-c.z + fs * 0.35}" font-size="${fs}" text-anchor="middle" fill="#eef1f5" font-family="system-ui">${c.curva}</text>`;
+    // «13 e 14» sulla mappa diventa «13-14», in un'etichetta larga quanto il testo
+    const et = String(c.curva).replace(" e ", "-");
+    const w = fs * (0.62 * et.length + 0.6), h = fs * 1.25;
+    svg += `<rect x="${c.x - w / 2}" y="${-c.z - h / 2}" width="${w}" height="${h}" rx="${h / 2}" fill="#0d0f12" stroke="#eef1f5" vector-effect="non-scaling-stroke"/>`;
+    svg += `<text x="${c.x}" y="${-c.z + fs * 0.35}" font-size="${fs}" text-anchor="middle" fill="#eef1f5" font-family="system-ui">${et}</text>`;
   });
   svg += "</svg>";
   $("#t-mappa").innerHTML = svg;

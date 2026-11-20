@@ -260,10 +260,7 @@ class App:
 
     async def api_imp(self, req):
         if req.method == "POST":
-            try:
-                nuovi = await req.json()
-            except ValueError:
-                raise web.HTTPBadRequest(text="JSON non valido")
+            nuovi = await _json(req)
             prima = (self.imp["voce"], self.imp["velocita"], self.imp["effetto_radio"])
             self.imp.aggiorna(nuovi)
             if prima != (self.imp["voce"], self.imp["velocita"], self.imp["effetto_radio"]):
@@ -272,12 +269,12 @@ class App:
 
     async def api_prova(self, req):
         try:
-            d = await req.json()
-        except ValueError:
+            d = await _json(req)
+        except web.HTTPBadRequest:
             d = {}
-        testo = (d.get("testo") or "").strip()[:200] or \
+        testo = str(d.get("testo") or "").strip()[:200] or \
             "Radio check. Ti sento forte e chiaro. Box, box questo giro."
-        grafia = (d.get("grafia") or "").strip()[:200]   # «Prova» del dizionario: così com'è scritta
+        grafia = str(d.get("grafia") or "").strip()[:200]   # «Prova» del dizionario: così com'è scritta
         v = self.imp
         loop = asyncio.get_running_loop()
         chiave, durata = await loop.run_in_executor(
@@ -290,10 +287,7 @@ class App:
         """GET: il dizionario. POST {"parola", "grafia"} aggiunge o cambia; {"parola", "togli": true}
         toglie (una voce cambiata torna quella di partenza); {"parola", "rimetti": true}."""
         if req.method == "POST":
-            try:
-                d = await req.json()
-            except ValueError:
-                raise web.HTTPBadRequest(text="JSON non valido")
+            d = await _json(req)
             try:
                 if d.get("togli"):
                     self.pronuncia.togli(d.get("parola", ""))
@@ -342,11 +336,11 @@ class App:
         return web.json_response(self.bib.piste())
 
     async def api_giri(self, req):
-        return web.json_response(self.bib.giri(int(req.match_info["pista"])))
+        return web.json_response(self.bib.giri(_pista(req)))
 
     async def api_confronto(self, req):
         """Traiettoria e curve: giro A confrontato con il giro B (il riferimento)."""
-        pista = int(req.match_info["pista"])
+        pista = _pista(req)
         a = self.bib.leggi(pista, req.query.get("a", ""))
         b = self.bib.leggi(pista, req.query.get("b", ""))
         if a is None or b is None:
@@ -401,6 +395,24 @@ class App:
         app.on_startup.append(self.avvio)
         app.on_cleanup.append(self.spegni)
         return app
+
+
+async def _json(req):
+    """Il corpo JSON di una richiesta, che deve essere un oggetto (altrimenti 400)."""
+    try:
+        d = await req.json()
+    except ValueError:
+        raise web.HTTPBadRequest(text="JSON non valido")
+    if not isinstance(d, dict):
+        raise web.HTTPBadRequest(text="serve un oggetto JSON")
+    return d
+
+
+def _pista(req):
+    try:
+        return int(req.match_info["pista"])
+    except ValueError:
+        raise web.HTTPNotFound(text="pista non valida")
 
 
 def _linea(c, passo=4.0):

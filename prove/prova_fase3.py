@@ -7,7 +7,8 @@
 - registratore: i pacchetti dei menu con session_uid 0 non spezzano la sessione in tanti file;
 - numeri ufficiali delle curve: su un giro vero di Montréal (se c'è la biblioteca), se no su
   curve finte messe dove sono quelle ufficiali;
-- consigli di guida: dicono che cosa fare, con il dato.
+- consigli di guida: dicono che cosa fare, con il dato;
+- contatti: la stessa macchina una volta al minuto, anche dopo i flashback.
 Con `--registrazioni`: freni caldi detti una volta sola nella qualifica vera con i flashback.
 Esce con 1 se qualcosa non va.
 """
@@ -16,7 +17,6 @@ import glob
 import gzip
 import json
 import os
-import struct
 import sys
 import tempfile
 
@@ -129,6 +129,31 @@ def curve(giri):
         controlla(frase and frase.startswith(atteso), f"consiglio: «{frase}»")
 
 
+def contatti():
+    print("== contatti dopo i flashback")
+    from ingegnere.ingegnere import Ingegnere
+    from ingegnere.stato import Stato
+    st = Stato()
+    st.giocatore, st.formato, st.nomi = 0, 2026, {3: "RUSSELL", 5: "SAINZ"}
+    E = P.STRUTTURE[2026][P.EVENT]
+    ing = Ingegnere(1)
+
+    def coll(altro, t):
+        e = E()
+        e.code[:] = list(b"COLL")
+        e.header.session_time = t
+        e.details.collision.vehicle1_idx, e.details.collision.vehicle2_idx = 0, altro
+        return [m.testo for m in ing.evento(st, P.Pacchetto(P.EVENT, 2026, e.header, e))]
+
+    detti = []
+    for ora, t, altro in ((10, 100, 3), (12, 90, 3), (14, 100, 3), (40, 120, 5), (45, 125, 3), (80, 160, 3)):
+        ing.ora = ora                 # l'orologio che non torna indietro; t torna indietro (flashback)
+        detti += coll(altro, t)
+    controlla(detti == ["Contatto con Russell. Controllo i danni.", "Contatto con Sainz. Controllo i danni.",
+                        "Contatto con Russell. Controllo i danni."], f"contatti detti: {detti}")
+    controlla(ing.contatti == 3, f"contatti contati: {ing.contatti}")
+
+
 def freni(cartella):
     f = os.path.join(cartella, "20261120-010511-sessione.f1rec.gz") if cartella else None
     if not f or not os.path.exists(f):
@@ -150,6 +175,7 @@ def main():
     pronuncia()
     tasti()
     registratore()
+    contatti()
     curve(o.giri)
     freni(o.registrazioni)
     print("\nESITO:", "OK" if not problemi else "NON VA")

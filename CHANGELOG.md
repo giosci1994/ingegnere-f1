@@ -4,6 +4,34 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-11-20
+
+### Changed
+- **The page works on phone, tablet and PC**: two columns where they help (Radio: dashboard and
+  calls side by side; Summaries: list and detail; Racing line: map and table on a wide screen;
+  Info), the settings as cards on two or three columns, a compact header for a phone in
+  landscape, touch targets of at least 40 px, no horizontal page scroll, a «Salvato» message that
+  stays visible, corner labels on the map sized to their text («13-14»), text columns that wrap in
+  the corner tables, identical penalties grouped in the summary («avvertimento ×8»).
+- «Freni ancora caldi» at most every 10 minutes of game time (was 5) unless they get hotter.
+
+### Fixed
+- «Contatto con…» repeated after every flashback: the same car is called once a minute on a
+  clock that does not go back with flashbacks, and two different contacts within 15 s are called
+  once; the summary counts them the same way.
+- The same pit stop listed twice in the summary after a flashback in the pit lane.
+- Cooldowns of the coaching and strategy calls are measured on the same flashback-proof clock.
+- API: a JSON body that is not an object, or a non-numeric track id, now gives 400/404 instead
+  of a server error; on/off settings sent as the text «false» are no longer read as true.
+- Code review: unused imports, attributes, a helper function, four fixed phrases that were never
+  said (they were synthesised at every start), unused CSS and JavaScript removed; the lap index
+  is rewritten atomically when old laps are pruned.
+
+### Tests
+- `prove/pagina.py` checks five sizes (375, 768, 1024, 1440 and a phone in landscape 844×390):
+  no JavaScript errors, no horizontal scroll on any tab, buttons at least 40 px high.
+- `prove/prova_fase3.py` also checks the contacts after flashbacks.
+
 ## [0.3.0] - 2026-11-20
 
 Phase 3, after the first real sessions on the PS5 (practice, a race and a short qualifying in

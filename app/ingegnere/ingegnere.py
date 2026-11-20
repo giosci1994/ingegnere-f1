@@ -11,11 +11,10 @@ Regole generali:
 """
 
 import random
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from . import pacchetti as P
 from .impostazioni import CATEGORIE
-from .stato import ms
 
 
 @dataclass
@@ -94,17 +93,13 @@ FRASI_FISSE = [
     "Box, box. Box, box.",
     "Via, via, via!",
     "Ultimo giro! Dai tutto.",
-    "Contatto. Controllo i danni.",
     "Penalità scontata. Bene, testa giù.",
     "Giro cancellato. Limiti della pista.",
     "Overtake disponibile. Usalo.",
     "Batteria quasi scarica. Ricarica.",
-    "Giro più veloce della gara! Grande.",
     "È anche il giro più veloce della gara. Grande.",
-    "Pronti. Radio check. Ti sento forte e chiaro.",
     "Inizia a piovere. Valuta le intermedie.",
     "La pista si sta asciugando. Valuta le slick.",
-    "Gomme surriscaldate. Gestisci, gestisci.",
     "Gomme fredde. Scaldale.",
     "Freni caldi. Gestisci in frenata.",
     "Guasto all'ERS. Ti diamo istruzioni.",
@@ -157,6 +152,10 @@ class Ingegnere:
         self.avvertimenti = 0
         self.giro1_detto = False
         self.ultima_t = 0.0
+        self.ora = 0.0            # orologio di gioco che non torna indietro con i flashback
+        self._t_prec = None
+        self.contatti_visti = {}  # altra auto -> self.ora dell'ultimo contatto detto
+        self.contatto_detto = None
         self.arrivo_pos = None
 
     # ---------- utilità ----------
@@ -182,6 +181,9 @@ class Ingegnere:
         if t + 5 < self.ultima_t:          # il tempo torna indietro: flashback o riavvio
             self._indietro(t)
         self.ultima_t = t
+        if self._t_prec is not None and 0 < t - self._t_prec < 2:
+            self.ora += t - self._t_prec
+        self._t_prec = t
         out = []
         if ses.game_paused:
             return out
@@ -281,6 +283,8 @@ class Ingegnere:
         if not ps and self.pit:
             secondi = lap.pit_lane_time_in_lane_in_ms / 1000 if lap.pit_lane_time_in_lane_in_ms else None
             if self.pit_entrata:
+                if self.soste and self.soste[-1]["giro"] == self.pit_entrata[1]:
+                    self.soste.pop()       # la stessa sosta rifatta dopo un flashback: una volta sola
                 self.soste.append({"giro": self.pit_entrata[1],
                                    "secondi_in_pit_lane": round(secondi, 1) if secondi else None,
                                    "sosta_secondi": round(lap.pit_stop_timer_in_ms / 1000, 1)
@@ -700,11 +704,19 @@ class Ingegnere:
         elif code == "COLL":
             c = d.collision
             if idx in (c.vehicle1_idx, c.vehicle2_idx):
-                self.contatti += 1
+                # come i freni: con la stessa macchina una volta al minuto di un orologio che non
+                # torna indietro con i flashback (prima ogni flashback rifaceva dire lo stesso
+                # contatto); due contatti diversi a meno di 15 s: si dice il primo
                 altro = c.vehicle2_idx if c.vehicle1_idx == idx else c.vehicle1_idx
-                self._m(out, t, "danni", "contatto",
-                        f"Contatto con {st.nome(altro)}. Controllo i danni.",
-                        attesa=15, livello=2, ttl=10)
+                u = self.contatti_visti.get(altro)
+                if u is None or self.ora - u >= 60:
+                    self.contatti += 1
+                    self.contatti_visti[altro] = self.ora
+                    if self.contatto_detto is None or self.ora - self.contatto_detto >= 15:
+                        self.contatto_detto = self.ora
+                        out.append(Messaggio("danni", "contatto",
+                                             f"Contatto con {st.nome(altro)}. Controllo i danni.",
+                                             livello=2, ttl=10, creato=t))
         elif code == "FLBK":
             self.flashback += 1
             self._indietro(d.flashback.flashback_session_time)

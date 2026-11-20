@@ -17,9 +17,8 @@ h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .06em; color: v
 .ps5::before { content: "●"; margin-right: 5px; }
 .ps5.acceso::before { color: var(--verde); }
 .ps5.spento::before { color: var(--rosso); }
-.pillola { background: var(--pannello); border: 1px solid var(--bordo); border-radius: 99px; padding: 4px 10px; font-size: 13px; }
-nav { display: flex; gap: 4px; padding: 0 12px; position: sticky; top: 0; background: var(--sfondo); z-index: 2; border-bottom: 1px solid var(--bordo); }
-nav button { flex: 1; background: none; border: 0; color: var(--tenue); padding: 12px 4px; font-size: 15px; border-bottom: 3px solid transparent; }
+nav { display: flex; gap: 4px; padding: 0 12px; position: sticky; top: 0; background: var(--sfondo); z-index: 2; border-bottom: 1px solid var(--bordo); overflow-x: auto; scrollbar-width: none; }
+nav button { flex: 1 0 auto; background: none; border: 0; color: var(--tenue); padding: 12px 6px; min-height: 46px; font-size: 15px; border-bottom: 3px solid transparent; }
 nav button.attivo { color: var(--testo); border-bottom-color: var(--rosso); }
 main { padding: 12px 16px 40px; max-width: 640px; margin: 0 auto; }
 .vista { display: none; } .vista.attiva { display: block; }
@@ -38,14 +37,14 @@ button { font: inherit; cursor: pointer; }
 .frasi li { background: var(--pannello); border-left: 4px solid var(--bordo); border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; font-size: 18px; }
 .frasi li small { display: block; color: var(--tenue); font-size: 12px; }
 .frasi li.p1 { border-left-color: var(--rosso); } .frasi li.p2 { border-left-color: var(--giallo); }
-.frasi li.p3 { border-left-color: var(--blu); } .frasi li.in-onda { background: #1f2630; }
+.frasi li.p3 { border-left-color: var(--blu); }
 .frasi li.vuoto { border: 0; color: var(--tenue); font-size: 15px; }
 .interruttori { display: grid; gap: 6px; }
 .interruttore { display: flex; align-items: center; gap: 12px; background: var(--pannello); border: 1px solid var(--bordo); border-radius: 10px; padding: 12px; font-size: 16px; }
 .interruttore input { width: 22px; height: 22px; accent-color: var(--rosso); flex: none; }
 .segmenti { display: inline-flex; background: var(--pannello); border: 1px solid var(--bordo); border-radius: 10px; padding: 3px; gap: 3px; }
 .segmenti.largo { display: flex; }
-.segmenti button { flex: 1; border: 0; background: none; color: var(--tenue); padding: 10px 12px; border-radius: 8px; font-size: 15px; }
+.segmenti button { flex: 1; border: 0; background: none; color: var(--tenue); padding: 10px 12px; min-height: 44px; border-radius: 8px; font-size: 15px; }
 .segmenti button.attivo { background: var(--rosso); color: #fff; }
 .riga-scelta { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
 .riga-scelta h2 { margin: 0; }
@@ -54,10 +53,12 @@ button { font: inherit; cursor: pointer; }
 .cursore input { width: 100%; accent-color: var(--rosso); margin-top: 6px; }
 .prova { display: flex; gap: 8px; margin-top: 16px; }
 .prova input { flex: 1; min-width: 0; background: var(--pannello); color: var(--testo); border: 1px solid var(--bordo); border-radius: 10px; padding: 12px; font: inherit; }
-.prova button, .piccolo { background: var(--pannello); color: var(--testo); border: 1px solid var(--bordo); border-radius: 10px; padding: 10px 14px; }
+.prova button, .piccolo { background: var(--pannello); color: var(--testo); border: 1px solid var(--bordo); border-radius: 10px; padding: 10px 14px; min-height: 44px; }
 .elenco { list-style: none; padding: 0; margin: 10px 0; }
 .elenco li { background: var(--pannello); border: 1px solid var(--bordo); border-radius: 10px; padding: 12px; margin-bottom: 6px; }
-.elenco li button { all: unset; display: block; width: 100%; cursor: pointer; }
+.elenco li button { all: unset; display: block; width: 100%; box-sizing: border-box; padding: 12px; min-height: 44px; cursor: pointer; }
+.elenco li button:focus-visible { outline: 2px solid var(--blu); border-radius: 10px; }
+#elenco-gare li { padding: 0; }
 .elenco.piccolo li { font-size: 13px; padding: 8px 10px; }
 .diagnosi { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 14px; }
 .diagnosi dt { color: var(--tenue); } .diagnosi dd { margin: 0; overflow-wrap: anywhere; }
@@ -65,7 +66,8 @@ button { font: inherit; cursor: pointer; }
 .scheda h3 { margin: 0 0 8px; font-size: 18px; }
 .numeri { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; }
 .numeri div { text-align: center; } .numeri b { display: block; font-size: 20px; } .numeri span { font-size: 12px; color: var(--tenue); }
-.tabella { width: 100%; overflow-x: auto; }
+.tabella { width: 100%; overflow-x: auto; scrollbar-color: var(--bordo) transparent; }
+td.testo { white-space: normal; text-align: left; min-width: 11em; }
 table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
 th, td { padding: 6px 5px; border-bottom: 1px solid var(--bordo); text-align: right; white-space: nowrap; }
 th:first-child, td:first-child { text-align: left; }
@@ -74,7 +76,7 @@ td.no { color: var(--rosso); text-decoration: line-through; } tr.migliore td { c
 .mappa { background: var(--pannello); border: 1px solid var(--bordo); border-radius: 12px; margin: 10px 0; aspect-ratio: 1 / 1; }
 .mappa svg { width: 100%; height: 100%; display: block; }
 .curve-bottoni { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.curve-bottoni button { background: var(--pannello); color: var(--testo); border: 1px solid var(--bordo); border-radius: 8px; padding: 8px 10px; font-size: 14px; }
+.curve-bottoni button { background: var(--pannello); color: var(--testo); border: 1px solid var(--bordo); border-radius: 8px; padding: 8px 12px; min-height: 44px; font-size: 14px; }
 .curve-bottoni button.attivo { background: var(--rosso); border-color: var(--rosso); }
 .pallino { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
 .pallino.rosso { background: var(--rosso); } .pallino.grigio { background: #9aa3b0; }
@@ -84,10 +86,84 @@ video#sveglia { position: fixed; width: 1px; height: 1px; opacity: 0.01; pointer
 .riga-bottoni { display: flex; gap: 8px; margin: 8px 0; }
 .pronuncia-nuova input { min-width: 0; }
 .voci li { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; align-items: center; }
-.voci li input { min-width: 0; background: var(--sfondo); color: var(--testo); border: 1px solid var(--bordo); border-radius: 8px; padding: 6px 8px; font: inherit; }
+.voci li input { min-width: 0; min-height: 44px; background: var(--sfondo); color: var(--testo); border: 1px solid var(--bordo); border-radius: 8px; padding: 6px 8px; font: inherit; }
 .voci li .azioni { display: flex; gap: 4px; }
-.voci li button { background: var(--pannello); color: var(--testo); border: 1px solid var(--bordo); border-radius: 8px; padding: 6px 8px; }
+.voci li button { background: var(--pannello); color: var(--testo); border: 1px solid var(--bordo); border-radius: 8px; min-width: 44px; min-height: 44px; padding: 0 8px; }
 .voci li.tolta span { color: var(--tenue); text-decoration: line-through; }
 .voci li small { grid-column: 1 / -1; color: var(--tenue); }
 .tasti { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; font-size: 14px; }
 .tasti select { margin-top: 0; }
+
+/* ---------- un messaggio «Salvato» sempre visibile, anche in fondo alla pagina ---------- */
+.salvato { position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 5;
+  margin: 0; background: #123d24; color: var(--verde); border: 1px solid var(--verde); border-radius: 99px; padding: 8px 16px; font-size: 14px; max-width: calc(100% - 32px); }
+.salvato:empty { display: none; }
+
+/* ---------- niente scorrimento orizzontale: i figli delle griglie possono restringersi ---------- */
+main, .blocco, .griglia > * { min-width: 0; }
+.blocco > h2:first-child, .blocco > .riga-scelta:first-child { margin-top: 8px; }
+
+/* telefono stretto (meno di 380 px) */
+@media (max-width: 379px) {
+  main { padding: 10px 12px 40px; }
+  nav { padding: 0 6px; } nav button { font-size: 14px; padding: 12px 4px; }
+  .cella b { font-size: 19px; }
+  .voci li { grid-template-columns: 1fr; } .voci li .azioni { justify-content: flex-end; }
+}
+
+/* telefono in orizzontale: poco spazio in altezza */
+@media (orientation: landscape) and (max-height: 520px) {
+  header { padding: 6px 16px; } .logo { font-size: 22px; } h1 { font-size: 17px; }
+  nav button { padding: 8px 6px; min-height: 40px; }
+  .grande { padding: 12px; font-size: 18px; }
+  .cruscotto { grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
+  .cella { padding: 6px; } .cella b { font-size: 18px; }
+  .frasi li { font-size: 16px; padding: 8px 10px; }
+  .mappa { max-height: 85vh; margin-left: auto; margin-right: auto; }
+}
+
+/* tablet in verticale: gli avvisi a schede su due colonne */
+@media (min-width: 700px) {
+  main { max-width: 920px; }
+  .griglia { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 20px; align-items: start; }
+  .griglia .largo2 { grid-column: span 2; }
+  .griglia .blocco { background: #12151a; border: 1px solid var(--bordo); border-radius: 14px; padding: 4px 16px 16px; }
+  .griglia .largo2 .interruttori { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .griglia .largo2 > .interruttore { margin-top: 6px; }
+  .voci { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .voci li { margin-bottom: 0; }
+}
+
+/* due colonne: tablet, telefono largo in orizzontale, pc */
+@media (min-width: 900px), (min-width: 640px) and (orientation: landscape) {
+  main { max-width: 1240px; padding: 16px 24px 48px; }
+  nav { justify-content: center; } nav button { flex: 0 1 190px; }
+  .vista.colonne.attiva { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+  #v-radio.attiva { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); }
+  #v-gare.attiva { grid-template-columns: minmax(260px, 1fr) minmax(0, 2fr); }
+  #v-traiettoria.attiva { display: block; }     /* la tabella ha 7 colonne: a fianco solo dal pc largo */
+  #v-radio .blocco:first-child, #v-gare .blocco:first-child { position: sticky; top: 64px; }
+  .griglia { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 24px; align-items: start; }
+  .griglia .largo2 { grid-column: span 2; }
+  .griglia .blocco { background: #12151a; border: 1px solid var(--bordo); border-radius: 14px; padding: 4px 16px 16px; }
+  .griglia .largo2 .interruttori { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .griglia .largo2 > .interruttore { margin-top: 6px; }
+  .voci { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .voci li { margin-bottom: 0; }
+  .cruscotto { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* schermo largo del pc: tre colonne negli avvisi */
+@media (min-width: 1280px) {
+  #v-traiettoria.attiva { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); }
+  .griglia { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .griglia .largo2 .interruttori { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .voci { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .frasi li { font-size: 20px; }
+}
+
+/* puntatore preciso (mouse): un segno quando ci si passa sopra */
+@media (hover: hover) {
+  .elenco li button:hover, .curve-bottoni button:hover, .piccolo:hover, .voci li button:hover, .prova button:hover { filter: brightness(1.25); }
+  nav button:hover { color: var(--testo); }
+}

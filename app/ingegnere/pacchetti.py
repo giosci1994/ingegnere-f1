@@ -341,10 +341,6 @@ def codice_evento(p):
     return bytes(p.dati.code).decode("ascii", "replace")
 
 
-def dettaglio_evento(p, nome):
-    return getattr(p.dati.details, nome)
-
-
 # ---- enum utili (dalla specifica) ----
 GOMME_VISIVE = {16: "soft", 17: "medium", 18: "hard", 7: "intermedie", 8: "da bagnato",
                 15: "da bagnato", 19: "super soft", 20: "soft", 21: "hard", 22: "soft",
