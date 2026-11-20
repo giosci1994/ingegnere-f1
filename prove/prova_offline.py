@@ -26,11 +26,12 @@ from ingegnere.traccia import Biblioteca  # noqa: E402
 from ingegnere.impostazioni import CATEGORIE, Impostazioni  # noqa: E402
 from ingegnere.ingegnere import Ingegnere  # noqa: E402
 from ingegnere.radio import VALE_DOPO  # noqa: E402
+from ingegnere.spotter import Spotter  # noqa: E402
 from ingegnere.registratore import leggi  # noqa: E402
 from ingegnere.stato import Stato  # noqa: E402
 
 DA_DECODIFICARE = {P.SESSION, P.LAP, P.EVENT, P.PARTICIPANTS, P.TELEMETRY, P.STATUS, P.FINAL,
-                   P.DAMAGE, P.HISTORY, P.TELEMETRY2, P.MOTION, P.MOTIONEX, P.SETUPS}
+                   P.DAMAGE, P.HISTORY, P.TELEMETRY2, P.MOTION, P.MOTIONEX, P.SETUPS, P.TYRESETS}
 
 
 def main():
@@ -54,6 +55,8 @@ def main():
     riassunti = {}
     prossimo = 0.0
     tasti = D.Tasti()
+    spotter = Spotter()
+    imp.aggiorna({"avvisi": {"spotter": True}})     # nella prova lo spotter è acceso
     tenuti, in_silenzio = [], False
     conta_silenzio = Counter()
 
@@ -113,10 +116,13 @@ def main():
             for i in ing.values():
                 i.nuova_sessione()
             an.nuova_sessione()
+            spotter.reset()
         if pk.id == P.TELEMETRY and pk.dati is not None:
             an.campione(st)
         elif pk.id == P.LAP and pk.dati is not None:
             soste += an.strategia.osserva(st)
+        elif pk.id == P.MOTION and pk.dati is not None:
+            dici(1, spotter.valuta(st), st.tempo())
         if pk.id == P.EVENT and pk.dati is not None and P.codice_evento(pk) == "BUTN":
             for n in tasti.premuti(pk.dati.details.buttons.button_status, imp):
                 dom = imp["tasti"].get(str(n))
@@ -145,7 +151,12 @@ def main():
     print("\n== messaggi per categoria ==")
     for c in CATEGORIE:
         print(f"  {c:<11} {conta[c]}")
-    mai = [c for c in CATEGORIE if not conta[c] and not (c == "ali" and st.formato == 2025)]  # nel 2025 non ci sono
+    # nel 2025 non ci sono le ali; i settori sono di prove e qualifiche; il passo (confronto con
+    # gli altri, 3 giri puliti) non scatta nella gara finta piena di eventi: si prova in
+    # prova_fase3.py sulla gara pulita
+    gara = st.in_gara()
+    mai = [c for c in CATEGORIE if not conta[c] and not (c == "ali" and st.formato == 2025)
+           and not (c == "settori" and gara) and not (c == "passo" and gara)]
     print("categorie mai scattate:", ", ".join(mai) or "nessuna")
     raffica = [(k, n) for k, n in chiavi.items() if n > 6]
     print("chiavi ripetute più di 6 volte:", raffica or "nessuna")

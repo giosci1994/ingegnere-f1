@@ -5,6 +5,8 @@
 - una frase scaduta (ttl in secondi di gioco) non si dice più;
 - la stessa chiave in fila una volta sola (vince il testo più nuovo);
 - una frase di priorità 1 che «interrompe» taglia una frase di priorità 3 o più bassa;
+- silenzio di 30 s dal tasto (`zitto()`): passano solo le priorità 1 (bandiere, safety car,
+  spotter); le altre come nel silenzio della qualifica;
 - silenzio radio (giro lanciato in qualifica, `silenzio()` vero): passano solo le priorità 1–2
   e il tempo del giro appena chiuso (categoria record, detto sul traguardo);
   le altre si tengono e, finito il giro, si dicono quelle ancora valide (categorie che non
@@ -18,7 +20,8 @@ import time
 log = logging.getLogger("radio")
 PAUSA = 0.6
 # quello che dopo il traguardo vale ancora (un «sei sotto il secondo, attacca» invece no)
-VALE_DOPO = {"guida", "gomme", "danni", "meteo", "carburante", "ers", "record", "giri"}
+VALE_DOPO = {"guida", "gomme", "danni", "meteo", "carburante", "ers", "record", "giri",
+             "box", "strategia", "penalita"}   # le ultime tre contano solo per il tasto del silenzio
 
 
 class Radio:
@@ -37,6 +40,7 @@ class Radio:
         self.silenzio = silenzio or (lambda: False)   # () -> True nel giro lanciato in qualifica
         self.tenuti = []                  # frasi tenute durante il silenzio radio
         self.in_silenzio = False
+        self.zitto_fino = 0.0             # time.monotonic() fino a cui la radio sta zitta (tasto)
 
     def avvia(self):
         self._task = asyncio.create_task(self._ciclo())
@@ -57,20 +61,37 @@ class Radio:
         self.coda.clear()
         self.tenuti.clear()
 
+    def zitto(self, secondi=30.0):
+        """Il tasto del silenzio: zitta per `secondi`; premuto di nuovo, riaccende. Restituisce i
+        secondi di silenzio (0 = riaccesa)."""
+        adesso = time.monotonic()
+        if self.zitto_fino > adesso:
+            self.zitto_fino = 0.0
+        else:
+            self.zitto_fino = adesso + secondi
+        self._sveglia.set()
+        return max(0.0, self.zitto_fino - adesso)
+
+    def zitta(self):
+        return time.monotonic() < self.zitto_fino
+
     def ultima_frase(self):
         return self.detti[-1]["testo"] if self.detti else None
 
     def _silenzio(self, t):
         """Tiene le frasi non urgenti durante il giro lanciato; alla fine rimette quelle valide."""
+        muto = self.zitta()
         try:
-            zitto = bool(self.silenzio())
+            zitto = muto or bool(self.silenzio())
         except Exception:
             log.exception("silenzio")
             zitto = False
         if zitto:
             self.in_silenzio = True
-            # il tempo del giro appena chiuso (record) passa: è la chiamata del traguardo
-            tenere = [m for m in self.coda if m.priorita >= 3 and m.categoria != "record"]
+            # qualifica: il tempo del giro appena chiuso (record) passa, è la chiamata del traguardo;
+            # tasto del silenzio: passa solo la priorità 1
+            tenere = [m for m in self.coda if (m.priorita >= 2 if muto else
+                                               m.priorita >= 3 and m.categoria != "record")]
             if tenere:
                 self.coda = [m for m in self.coda if m not in tenere]
                 for m in tenere:
@@ -118,7 +139,9 @@ class Radio:
         occupato = adesso < self.occupato_fino
         interrompi = False
         if occupato:
-            if m.interrompe and m.priorita == 1 and self.in_onda and self.in_onda.priorita >= 3:
+            # lo spotter taglia anche le frasi di priorità 2: un affiancamento detto tardi non serve
+            soglia = 2 if m.categoria == "spotter" else 3
+            if m.interrompe and m.priorita == 1 and self.in_onda and self.in_onda.priorita >= soglia:
                 interrompi = True
             else:
                 self._sveglia.clear()
@@ -129,6 +152,9 @@ class Radio:
                 return
         self.coda.pop(0)
         await self.parla(m, interrompi)
+        nato = getattr(m, "nato", None)
+        if nato is not None:              # lo spotter: quanto ci ha messo dal pacchetto alla radio
+            log.info("ritardo %s: %.3f s dal pacchetto all'invio ai telefoni", m.chiave, time.monotonic() - nato)
 
     async def parla(self, m, interrompi=False):
         v = self.imp

@@ -16,7 +16,9 @@ Il giocatore (indice 0) parte P8 e ha un copione:
 - giro 5 l'auto dietro si ferma, finestra box, ali in modalità curva sul rettilineo, sosta a fine giro;
 - giro 6 VSC, guasto ERS, freni caldi, pattinamento e gas tardi in curva 5;
 - giro 7 pioggia, giro veloce; poi bandiera a scacchi, classifica finale, fine sessione;
-- tasti (evento BUTN): UDP Action 2 al giro 3, 1 al giro 5, 7 al giro 6 (le domande).
+- tasti (evento BUTN): UDP Action 2 al giro 3, 1 al giro 5, 7 al giro 6 (le domande);
+- fase 5: i set di gomme del giocatore (pacchetto tyre sets); un'auto che passa a meno di 8 m
+  dal giocatore gli corre a fianco, 2,5 m a destra (per lo spotter).
 Il giocatore sottosterza nelle curve lente, le posteriori scaldano più delle anteriori e lo
 speed trap è più basso degli altri: servono a far scattare i consigli d'assetto.
 `--sessione prove --pilota-lento` fa una sessione di prove più lenta, da confrontare.
@@ -368,6 +370,11 @@ class Sim:
             dist = o.d[i] % PISTA if o.d[i] >= 0 else o.d[i]
             c.lap_distance, c.total_distance = dist, o.d[i]
             c.sector = 0 if dist < PISTA / 3 else (1 if dist < 2 * PISTA / 3 else 2)
+            if i == 0 and c.sector and dist > 0:     # tempi di settore (in proporzione alla distanza)
+                s1 = int(c.current_lap_time_in_ms * (PISTA / 3) / dist)
+                c.sector1_time_ms_part, c.sector1_time_minutes_part = s1 % 60000, s1 // 60000
+                if c.sector == 2:
+                    c.sector2_time_ms_part, c.sector2_time_minutes_part = s1 % 60000, s1 // 60000
             c.car_position = o.pos[i]
             c.grid_position = o.griglia[i]
             c.driver_status = 0 if o.t_rec < 3 else 4
@@ -471,6 +478,8 @@ class Sim:
         for i in range(o.n):
             dist = o.d[i] if o.d[i] >= 0 else PISTA + o.d[i]
             off = 0.0
+            if i != 0 and abs(_wrap(o.d[i] - o.d[0])) < 8:
+                off = 2.5                 # affiancata a destra del giocatore: per lo spotter
             if i == 0 and o.gara and g == o.giri and abs(_wrap(dist - CURVE[3][0])) < 120:
                 off = 3.0 * math.cos(_wrap(dist - CURVE[3][0]) / 120 * math.pi / 2)
             if i == 0 and o.o.pilota_lento:
@@ -545,6 +554,23 @@ class Sim:
         if o.gara and g == 2 and 0.8 < fr < 0.83:
             x.cars[0].driving_wrong_way = 1
         o.h(x, P.TELEMETRY2)
+
+    def tyre_sets(self):
+        """I set del giocatore: soft nuove, medie (montate), dure nuove, intermedie."""
+        o = self
+        x = o.S[P.TYRESETS]()
+        x.car_idx = 0
+        montata = o.mescola[0]
+        sets = [(16, 10, -500), (17, 13, 0), (18, 17, 400), (17, 13, 0), (7, 27, 4000)]
+        for k, (mescola, vita, delta) in enumerate(sets):
+            s = x.sets[k]
+            s.actual_tyre_compound = s.visual_tyre_compound = mescola
+            s.available, s.life_span, s.usable_life, s.lap_delta_time = 1, vita, vita, delta
+            s.fitted = 1 if (mescola == montata and k in (1, 2)) else 0
+            if s.fitted:
+                s.available = 0
+        x.fitted_idx = 1 if montata == 17 else 2
+        o.h(x, P.TYRESETS)
 
     def damage(self):
         o = self
@@ -663,6 +689,7 @@ class Sim:
                 o.history()
             if k % 40 == 0:
                 o.setups()
+                o.tyre_sets()
             if k % 100 == 0:
                 o.participants()
             if o.gara and not ftlp and o.giro_g() == 8 and o.frazione() > 0.01:

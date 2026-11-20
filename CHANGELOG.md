@@ -4,6 +4,50 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-11-20
+
+Ten calls and buttons found in similar projects (Crew Chief, iRacing's crew chief, Pits n'
+Giggles, T1, Simulator Controller), chosen one by one. Each one has its switch or category and
+its verbosity level, and every cooldown runs on a clock that does not go back with flashbacks.
+
+### Added
+- **Radio mute button**: a UDP Action silences the radio for 30 s (priority 1 still passes, the
+  rest is said afterwards if still valid); pressed again, the radio comes back.
+- **Rivals' tyre wear** in the undercut: when the game sends it (offline it does, for every car)
+  the rival's tyres are aged from their real wear and your wear per lap, and the call says it
+  («Ha le gomme al 55 per cento»); otherwise the estimate from the tyre age, as before.
+- **Tyre and fuel forecast** (race, every 5 laps): when the tyres reach 80 per cent or with how
+  much wear you finish; with how much fuel you finish and the maximum per lap; if it is not enough,
+  how many grams per lap to save.
+- **Which tyre set to fit** (from the game's tyre-sets packet): once per stint when the stop gets
+  close, and in the strategy answer: a compound you have not used yet in a dry race, one that lasts
+  to the end if any, the fastest of those, and for how many laps.
+- **Pit under safety car or VSC**: the estimated cost of stopping now (pit loss × 0.65 / 0.70),
+  said as an estimate, when a stop is still needed.
+- **Pace against the cars ahead and behind** (race, last 3 clean laps, 0.15–2 s a lap): «lo
+  prendi in N giri», «ti recupera N decimi a giro».
+- **Sector times** against your best (practice and qualifying; silent on a qualifying flying lap).
+- **«Dove perdo?»** button: the two worst corners of the last lap with the advice.
+- **Spotter**: a car alongside on the left or right (from every car's position, at 20 Hz),
+  «Libero» when it is over; it can cut a priority-2 phrase, which the phone then says again.
+  **Off by default**: server-side delay measured at about 1 ms (up to 0.3–1.4 s if another urgent
+  phrase is playing), plus about 0.35 s of radio beep before the voice and the phone's own audio
+  delay, not measured: to be tried on the PS5.
+- **Fuel target per lap** (see the forecast above).
+
+### Tests
+- `prove/prova_fase5.py` (also in CI): mute, «dove perdo», undercut with and without rivals' wear,
+  tyre-set choice, and simulator races (normal 2026/2025, clean, practice) for every new call.
+- The simulator sends the player's tyre sets, sector times, and a car running alongside.
+
+## [0.4.1] - 2026-11-20
+
+### Added
+- Under the verbosity selector (Essenziale/Normale/Tutto) the page says what each level adds,
+  and that the switches choose the topics while the level chooses how much is said about them.
+  The lists are read from the code (`livelli.py` parses the `livello` of every call with `ast`),
+  so they cannot drift; `prova_fase3.py` fails if a call has no name.
+
 ## [0.4.0] - 2026-11-20
 
 ### Changed

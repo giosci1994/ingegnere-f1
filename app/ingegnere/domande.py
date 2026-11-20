@@ -15,6 +15,9 @@ UDP Action 1 = 0x00100000 … UDP Action 12 = 0x80000000.
 
 import time
 
+from . import curve as C
+from . import gara as G
+from . import numeri_curve as N
 from . import pacchetti as P
 from .ingegnere import Messaggio, dec, pct, pos, tempo_giro
 
@@ -77,7 +80,8 @@ def rispondi(domanda, st, ing, an, ultima_frase=None):
     if idx is None or ses is None or lap is None:
         return None
     f = {"strategia": _strategia, "gomme": _gomme, "distacchi": _distacchi,
-         "carburante": _carburante, "danni": _danni, "passo": _passo}.get(domanda)
+         "carburante": _carburante, "danni": _danni, "passo": _passo,
+         "dove_perdo": _dove_perdo}.get(domanda)
     if f is None:
         return None
     testo = f(st, ing, an, idx, ses, lap)
@@ -107,7 +111,9 @@ def _strategia(st, ing, an, idx, ses, lap):
             parti.append("Finestra box chiusa.")
     u = an.stima_undercut(st, idx)
     if u is not None:
-        nome, guadagno, distacco = u
+        nome, guadagno, distacco, usura = u
+        if usura is not None:
+            parti.append(f"{nome} ha le gomme al {pct(usura)}.")
         if guadagno > distacco + 0.3:
             parti.append(f"Undercut su {nome} possibile: stimiamo {dec(guadagno)} secondi, sei a {dec(distacco)}.")
         else:
@@ -115,6 +121,10 @@ def _strategia(st, ing, an, idx, ses, lap):
     r = an.strategia.rientro(st, idx)
     if r is not None:
         parti.append(an.frase_rientro(st, r))
+    mancano = ses.total_laps - n if ses.total_laps else 0
+    scelta = G.set_per_sosta(st, idx, mancano) if mancano > 2 else None
+    if scelta is not None:
+        parti.append(G.frase_set(scelta))
     return " ".join(parti) or "Per la strategia mi servono ancora un paio di giri."
 
 
@@ -220,3 +230,18 @@ def _passo(st, ing, an, idx, ses, lap):
             if v:
                 testo += f" {st.nome(j)} ha fatto {tempo_giro(v)}."
     return testo
+
+
+def _dove_perdo(st, ing, an, idx, ses, lap):
+    """Le due curve dove hai perso di più nell'ultimo passaggio, con il consiglio."""
+    if not an.curve:
+        return "Mi serve ancora un giro di riferimento."
+    peggio = sorted(((dl, nome, come) for nome, (dl, come, _) in an.ultime_perdite.items()
+                     if dl >= 0.1), reverse=True)[:2]
+    if not peggio:
+        return "Nell'ultimo giro niente di grosso: meno di un decimo per curva."
+    parti = []
+    for dl, nome, come in peggio:
+        cu = next((x for x in an.curve if x["nome"] == nome), {"n": nome, "nome": nome})
+        parti.append(f"{N.etichetta(cu)}: {come + ', ' if come else ''}perdi {C.decimi(dl)}.")
+    return " ".join(parti)

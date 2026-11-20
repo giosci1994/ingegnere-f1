@@ -30,6 +30,7 @@ function apri() {
     let d; try { d = JSON.parse(e.data); } catch { return; }
     if (d.tipo === "stato") mostraStato(d);
     else if (d.tipo === "radio") arriva(d);
+    else if (d.tipo === "zitto") zittisci(d.secondi);
   };
   ws.onclose = () => {
     $("#ps5").textContent = "Server: riconnessione…";
@@ -88,14 +89,25 @@ document.addEventListener("visibilitychange", () => {
 function arriva(d) {
   aggiungiFrase(d);
   if (!collegato) return;
-  if (d.interrompi && inOnda && inOnda.priorita >= 3) {
+  const soglia = d.categoria === "spotter" ? 2 : 3;   // lo spotter taglia anche la priorità 2
+  if (d.interrompi && inOnda && inOnda.priorita >= soglia) {
     audio.pause();
+    const tagliata = inOnda;
     inOnda = null;
     coda = coda.filter((x) => x.priorita < 3);
+    if (tagliata.priorita === 2) coda.push(tagliata);   // una frase importante tagliata dallo spotter si ridice
     coda.unshift(d);
   } else {
     coda.push(d);
   }
+  suonaProssima();
+}
+
+// il tasto del silenzio (UDP Action): smette subito di parlare, restano solo le frasi urgenti
+function zittisci(secondi) {
+  if (!secondi) return;
+  if (inOnda && inOnda.priorita > 1) { audio.pause(); inOnda = null; }
+  coda = coda.filter((x) => x.priorita <= 1);
   suonaProssima();
 }
 
@@ -135,7 +147,7 @@ const fmt = (x, suff = "") => (x === null || x === undefined ? "–" : x + suff)
 function mostraStato(s) {
   const p = $("#ps5");
   if (s.connesso) {
-    p.textContent = `PS5 collegata · ${s.sessione || ""}${s.pista ? " · " + s.pista : ""}${s.in_pausa ? " · in pausa" : ""}${s.silenzio ? " · silenzio radio" : ""}`;
+    p.textContent = `PS5 collegata · ${s.sessione || ""}${s.pista ? " · " + s.pista : ""}${s.in_pausa ? " · in pausa" : ""}${s.silenzio ? " · silenzio radio" : ""}${s.zitta ? ` · radio zitta ${s.zitta} s` : ""}`;
     p.className = "ps5 acceso";
   } else {
     p.textContent = s.ricevuti ? "PS5: nessun dato da qualche secondo" : "PS5: in attesa dei dati…";
@@ -198,6 +210,7 @@ function disegnaImpostazioni() {
     box.append(l);
   });
   $$("#verbosita button").forEach((b) => b.classList.toggle("attivo", +b.dataset.v === v.verbosita));
+  disegnaLivelli(v.verbosita);
   $$("#voce button").forEach((b) => b.classList.toggle("attivo", b.dataset.voce === v.voce));
   $("#volume").value = v.volume; $("#o-volume").textContent = v.volume + "%";
   $("#velocita").value = v.velocita; $("#o-velocita").textContent = (+v.velocita).toFixed(2) + "×";
@@ -235,6 +248,23 @@ $("#assetto").addEventListener("change", (e) => salva({ assetto: e.target.checke
 $("#pilota").addEventListener("change", (e) => salva({ pilota: e.target.value }));
 $("#silenzio_qualifica").addEventListener("change", (e) => salva({ silenzio_qualifica: e.target.checked }));
 $("#una_curva_alla_volta").addEventListener("change", (e) => salva({ una_curva_alla_volta: e.target.checked }));
+
+// ---------- che cosa aggiunge ogni livello (letto dal codice dal server: livelli.py) ----------
+function disegnaLivelli(attivo) {
+  const box = $("#livelli");
+  const liv = impostazioni.livelli || {};
+  const nomi = { 1: ["Essenziale", "solo l'indispensabile"], 2: ["Normale", "in più"], 3: ["Tutto", "in più"] };
+  box.textContent = "";
+  [1, 2, 3].forEach((n) => {
+    const voci = liv[String(n)] || [];
+    const d = document.createElement("div");
+    d.className = "livello" + (n === attivo ? " attivo" : "") + (n > attivo ? " spento" : "");
+    const b = document.createElement("b"); b.textContent = nomi[n][0];
+    const t = document.createElement("span"); t.textContent = ` ${nomi[n][1]}: ${voci.join(", ") || "–"}.`;
+    d.append(b, t);
+    box.append(d);
+  });
+}
 
 // ---------- domande dai tasti (UDP Action 1–12) ----------
 function disegnaTasti(tasti) {

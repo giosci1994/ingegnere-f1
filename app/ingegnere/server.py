@@ -20,6 +20,7 @@ from .analisi import Analisi
 from .ingegnere import FRASI_FISSE, Ingegnere, Messaggio
 from .pronuncia import Pronuncia
 from .radio import Radio
+from .spotter import Spotter
 from .registratore import Registratore
 from .stato import Stato
 from .strategia import Piste
@@ -35,7 +36,7 @@ VOCI = os.environ.get("VOCI", os.path.join(os.path.dirname(BASE), "voci"))
 PORTA_UDP = int(os.environ.get("PORTA_UDP", "20777"))
 PORTA_WEB = int(os.environ.get("PORTA_WEB", "8777"))
 DA_DECODIFICARE = {P.SESSION, P.LAP, P.EVENT, P.PARTICIPANTS, P.TELEMETRY, P.STATUS, P.FINAL,
-                   P.DAMAGE, P.HISTORY, P.TELEMETRY2, P.MOTION, P.MOTIONEX, P.SETUPS}
+                   P.DAMAGE, P.HISTORY, P.TELEMETRY2, P.MOTION, P.MOTIONEX, P.SETUPS, P.TYRESETS}
 
 
 class App:
@@ -46,6 +47,7 @@ class App:
         self.pronuncia = Pronuncia(os.path.join(DATI, "pronuncia.json"))
         self.voce = Voce(VOCI, os.path.join(DATI, "cache"), self.pronuncia)
         self.tasti = D.Tasti()
+        self.spotter = Spotter()
         self.finale_salvata = None   # session_uid della classifica finale già messa nel riassunto
         self.reg = Registratore(os.path.join(DATI, "registrazioni"), self.imp)
         self.cartella_riassunti = os.path.join(DATI, "riassunti")
@@ -81,6 +83,7 @@ class App:
             for i in self.ing.values():
                 i.nuova_sessione()
             self.analisi.nuova_sessione()
+            self.spotter.reset()
             for r in self.radio.values():
                 r.svuota()
         try:
@@ -95,6 +98,12 @@ class App:
                 log.exception("traccia")
         elif pk.id == P.LAP and pk.dati is not None:
             self.nuove_soste += self.analisi.strategia.osserva(self.stato)
+        elif pk.id == P.MOTION and pk.dati is not None and self.imp.acceso("spotter"):
+            try:                       # subito, non nel ciclo di 0,2 s: lo spotter deve arrivare in tempo
+                for slot in self.radio:
+                    self.radio[slot].metti(self.spotter.valuta(self.stato))
+            except Exception:
+                log.exception("spotter")
         if pk.id == P.EVENT and pk.dati is not None:
             code = P.codice_evento(pk)
             if code == "BUTN":
@@ -115,6 +124,13 @@ class App:
         for n in self.tasti.premuti(stato_tasti, self.imp):
             domanda = self.imp["tasti"].get(str(n))
             if not domanda or not self.stato.connesso(5):
+                continue
+            if domanda == "silenzio":
+                for slot, r in self.radio.items():
+                    secondi = r.zitto(30)
+                    log.info("tasto UDP Action %s: silenzio %s", n, f"per {secondi:.0f} s" if secondi else "finito")
+                    asyncio.get_running_loop().create_task(
+                        self.invia_radio(slot, {"tipo": "zitto", "secondi": round(secondi)}))
                 continue
             for slot, ing in self.ing.items():
                 try:
@@ -202,6 +218,7 @@ class App:
             auto["pilota"] = self.stato.nomi.get(idx)
         s.update(tasti={"azione": self.tasti.ultima_azione, "tasto": self.tasti.ultimo_tasto},
                  silenzio=bool(self.radio[slot].in_silenzio) if slot in self.radio else False,
+                 zitta=round(max(0.0, self.radio[slot].zitto_fino - time.monotonic())) if slot in self.radio else 0,
                  auto=auto, cache_pronta=self.cache_pronta,
                  frasi=self.radio[slot].detti[-6:], clienti=len(self.clienti),
                  registrazione=self.reg.nome if self.reg.f else None)

@@ -8,7 +8,8 @@
 - numeri ufficiali delle curve: su un giro vero di Montréal (se c'è la biblioteca), se no su
   curve finte messe dove sono quelle ufficiali;
 - consigli di guida: dicono che cosa fare, con il dato;
-- contatti: la stessa macchina una volta al minuto, anche dopo i flashback.
+- contatti: la stessa macchina una volta al minuto, anche dopo i flashback;
+- livelli di verbosità: ogni frase del codice ha un nome (`livelli.py`).
 Con `--registrazioni`: freni caldi detti una volta sola nella qualifica vera con i flashback.
 Esce con 1 se qualcosa non va.
 """
@@ -154,6 +155,17 @@ def contatti():
     controlla(ing.contatti == 3, f"contatti contati: {ing.contatti}")
 
 
+def livelli():
+    print("== livelli di verbosità letti dal codice")
+    from ingegnere import livelli as L
+    m = L.mancanti()
+    controlla(not m, f"ogni frase del codice ha un nome e un livello: {m[:3]}")
+    d = L.descrizione()
+    controlla(all(d[k] for k in (1, 2, 3)), f"ogni livello aggiunge qualcosa: {[len(d[k]) for k in (1, 2, 3)]}")
+    controlla("bandiere gialla, blu e rossa" in d[1] and "consigli di guida dopo le curve" in d[2]
+              and "distacchi davanti e dietro a ogni giro" in d[3], "le bandiere a 1, la guida a 2, i distacchi a ogni giro a 3")
+
+
 def freni(cartella):
     f = os.path.join(cartella, "20261120-010511-sessione.f1rec.gz") if cartella else None
     if not f or not os.path.exists(f):
@@ -176,6 +188,7 @@ def main():
     tasti()
     registratore()
     contatti()
+    livelli()
     curve(o.giri)
     freni(o.registrazioni)
     print("\nESITO:", "OK" if not problemi else "NON VA")

@@ -41,3 +41,6 @@ jobs:
 
       - name: Phase 3 (pronunciation, buttons, recorder, corner numbers, coaching)
         run: docker run --rm -v "$PWD/prove:/prove:ro" ingegnere-f1:ci python /prove/prova_fase3.py
+
+      - name: Phase 5 (radio mute, «dove perdo», rivals' tyre wear, tyre sets, simulator races)
+        run: docker run --rm -v "$PWD/prove:/prove:ro" ingegnere-f1:ci python /prove/prova_fase5.py

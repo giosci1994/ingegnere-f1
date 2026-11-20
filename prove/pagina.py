@@ -81,9 +81,12 @@ def prova(base, url, cartella, larghezza, altezza, problemi, nome):
         n_tasti = js("return document.querySelectorAll('#tasti select').length;")
         nuovi = js("return ['silenzio_qualifica', 'una_curva_alla_volta'].filter(i => document.getElementById(i)).length;")
         scelta = js("return document.body.innerText.includes('Giocatore 2');")
+        n_livelli = js("return Array.from(document.querySelectorAll('#livelli .livello')).filter(d => d.textContent.length > 30).length;")
+        if n_livelli != 3:
+            problemi.append(f"{nome}: righe dei livelli di verbosità {n_livelli} invece di 3")
         foto("avvisi")
-        if n_cat < 17:
-            problemi.append(f"{nome}: interruttori degli avvisi {n_cat} invece di 17")
+        if n_cat < 20:
+            problemi.append(f"{nome}: interruttori degli avvisi {n_cat} invece di 20")
         if n_voci < 30:
             problemi.append(f"{nome}: dizionario di pronuncia con {n_voci} voci")
         if n_tasti != 12:

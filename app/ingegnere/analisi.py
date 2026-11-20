@@ -9,9 +9,10 @@ import statistics
 
 from . import assetto as A
 from . import curve as C
+from . import gara as G
 from . import numeri_curve as N
 from . import pacchetti as P
-from .ingegnere import Messaggio, dec, pos
+from .ingegnere import Messaggio, dec, pct, pos
 from .strategia import Strategia
 from .traccia import Biblioteca, Tracciatore, copertura
 
@@ -54,6 +55,12 @@ class Analisi:
         self.freni = None          # {"ora", "max"} dell'ultimo avviso
         self.freni_curve = {}      # nome della curva -> giri con i freni sopra soglia lì
         self._freni_giro = set()
+        # fase 5 (gara.py)
+        self.settore_prec = None
+        self.settori_migliori = {}  # 1, 2 -> secondi (giri validi della sessione)
+        self.benzina = []          # (giro finito, kg nel serbatoio)
+        self.sc_prec = 0
+        self.mescola_detta = -1    # numero di soste quando si è detto il set per la sosta
 
     def _puo(self, chiave, attesa, t):
         """Attesa prima di ripetere, sull'orologio che non torna indietro con i flashback
@@ -148,6 +155,12 @@ class Analisi:
             self.ora += t - self._t_prec
         self._t_prec = t
         out = []
+        giro_finito = self.giro_corrente is not None and lap.current_lap_num == self.giro_corrente + 1
+        if giro_finito:
+            sta = st.auto(P.STATUS, idx)
+            if sta is not None:
+                self.benzina.append((self.giro_corrente, sta.fuel_in_tank))
+                self.benzina = self.benzina[-40:]
         if lap.current_lap_num != self.giro_corrente:
             self.giro_corrente = lap.current_lap_num
             self.valutate = set()
@@ -157,8 +170,13 @@ class Analisi:
             self.rif_da_biblioteca(st)
         self._guida(out, t, st, ses, lap)
         self._freni(out, t, st, lap, idx)
+        G.settori(self, out, t, st, ses, lap)
         if st.in_gara():
             self._strategia(out, t, st, ses, lap, idx, nuove_soste)
+            G.box_sc(self, out, t, st, ses, lap, idx)
+            G.mescola(self, out, t, st, ses, lap, idx)
+            G.passo(self, out, t, st, ses, lap, idx, giro_finito)
+            G.previsioni(self, out, t, st, ses, lap, idx, giro_finito)
         if st.formato == 2026:
             self._ali(out, t, st, ses, lap, idx)
         return out
@@ -296,8 +314,20 @@ class Analisi:
         return lap.driver_status == 1 and not lap.pit_status and not lap.current_lap_invalid
 
     # ---------- strategia: pezzi usati anche dalle domande ----------
+    def eta_gomme(self, st, j):
+        """(età delle gomme di j in giri equivalenti, usura vera o None). Se il gioco manda l'usura
+        di j (offline sì), l'età si ricava dall'usura e dal tuo consumo per giro; se no, l'età vera
+        del set (come prima della 0.5.0)."""
+        sta_all = st.get(P.STATUS)
+        eta = sta_all.cars[j].tyres_age_laps if sta_all is not None else 0
+        usura = G.usura_altro(st, j)
+        mio = self._usura_per_giro()
+        if usura is None or not mio or max(mio) <= 0.2:
+            return eta, None
+        return usura / max(mio), usura
+
     def stima_undercut(self, st, idx):
-        """(nome di chi è davanti, vantaggio stimato in s, distacco) o None."""
+        """(nome di chi è davanti, vantaggio stimato in s, distacco, usura sua o None) o None."""
         lap = st.auto(P.LAP, idx)
         sta_all = st.get(P.STATUS)
         if lap is None or sta_all is None or lap.car_position <= 1:
@@ -307,8 +337,8 @@ class Analisi:
         deg = self.strategia.degrado(idx)
         if davanti_i is None or davanti_g is None or davanti_g >= 3.5 or not deg:
             return None
-        sua_eta = sta_all.cars[davanti_i].tyres_age_laps
-        return st.nome(davanti_i), deg * sua_eta - 0.8, davanti_g
+        eta, usura = self.eta_gomme(st, davanti_i)
+        return st.nome(davanti_i), deg * eta - 0.8, davanti_g, usura
 
     def frase_rientro(self, st, r):
         testo = f"Se rientri adesso esci {pos(r['posizione'])}"
@@ -373,14 +403,15 @@ class Analisi:
         deg = stg.degrado(idx)
         if davanti_i is not None and davanti_g is not None and davanti_g < 3.5 and deg and deg >= 0.04 \
                 and sta_all is not None:
-            sua_eta = sta_all.cars[davanti_i].tyres_age_laps
+            sua_eta, sua_usura = self.eta_gomme(st, davanti_i)
             if sua_eta >= mia_eta - 1 and sua_eta >= 5:
                 guadagno = deg * sua_eta - 0.8
                 if guadagno > davanti_g + 0.3 and (r["margine_dietro"] is None or r["margine_dietro"] >= 1.0) \
                         and self._puo("undercut", 150, t):
+                    sue = f" Ha le gomme al {pct(sua_usura)}." if sua_usura is not None else ""
                     out.append(Messaggio(
                         "strategia", "undercut",
-                        f"Undercut su {st.nome(davanti_i)}: box adesso. Stimiamo {dec(guadagno)} secondi "
+                        f"Undercut su {st.nome(davanti_i)}: box adesso.{sue} Stimiamo {dec(guadagno)} secondi "
                         f"di vantaggio con le gomme nuove.", priorita=2, livello=1, ttl=15, creato=t))
                     return
         # dove esci, una volta a giro a metà giro

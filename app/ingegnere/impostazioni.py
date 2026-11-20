@@ -23,12 +23,17 @@ CATEGORIE = {
     "record": ("Tempi sul giro e record personali", 5),
     "guida": ("Staccate e uscite di curva: come migliorare (rispetto al tuo giro migliore)", 5),
     "domande": ("Risposte alle domande dai tasti (UDP Action)", 2),
+    "settori": ("Tempi di settore contro il tuo migliore (prove e qualifiche)", 5),
+    "passo": ("Passo contro chi è davanti e dietro (gara)", 4),
+    "spotter": ("Spotter: macchina affiancata a sinistra o a destra", 1),
 }
+# spente di partenza (si accendono dalla pagina)
+SPENTE = {"spotter"}
 
 VERBOSITA = {1: "essenziale", 2: "normale", 3: "tutto"}
 
 PREDEFINITE = {
-    "avvisi": {k: True for k in CATEGORIE},
+    "avvisi": {k: k not in SPENTE for k in CATEGORIE},
     "verbosita": 2,
     "volume": 100,          # percento, applicato all'audio sul server (l'iPhone ignora il volume della pagina)
     "voce": "riccardo",     # riccardo (maschile, leggera) o paola (femminile, più naturale)
@@ -54,6 +59,8 @@ DOMANDE = {
     "danni": "Danni",
     "passo": "Com'è il passo (ultimo giro contro il migliore)",
     "ripeti": "Ripeti l'ultima frase",
+    "dove_perdo": "Dove perdo? (le due curve peggiori dell'ultimo giro)",
+    "silenzio": "Silenzio radio per 30 secondi (di nuovo: riaccende)",
 }
 # di partenza: le prime sette UDP Action (si cambiano dall'app)
 TASTI_PREDEFINITI = {str(n): (list(DOMANDE)[n - 1] if n <= len(DOMANDE) else "") for n in range(1, 13)}
@@ -117,7 +124,7 @@ class Impostazioni:
         return self.valori[k]
 
     def acceso(self, categoria):
-        return self.valori["avvisi"].get(categoria, True)
+        return self.valori["avvisi"].get(categoria, categoria not in SPENTE)
 
     def descrizione(self):
         return {
@@ -126,4 +133,20 @@ class Impostazioni:
                           for k, v in CATEGORIE.items()],
             "verbosita": VERBOSITA,
             "domande": DOMANDE,
+            "livelli": _livelli(),
         }
+
+
+_LIVELLI = None
+
+
+def _livelli():
+    """Che cosa si aggiunge a ogni livello di verbosità, letto dal codice una volta sola."""
+    global _LIVELLI
+    if _LIVELLI is None:
+        from . import livelli
+        try:
+            _LIVELLI = livelli.descrizione()
+        except (OSError, SyntaxError):
+            _LIVELLI = {}
+    return _LIVELLI

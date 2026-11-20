@@ -167,3 +167,10 @@ main, .blocco, .griglia > * { min-width: 0; }
   .elenco li button:hover, .curve-bottoni button:hover, .piccolo:hover, .voci li button:hover, .prova button:hover { filter: brightness(1.25); }
   nav button:hover { color: var(--testo); }
 }
+
+/* che cosa aggiunge ogni livello di verbosità */
+.livelli { display: grid; gap: 6px; margin-top: 8px; font-size: 13px; color: var(--tenue); }
+.livello { border-left: 3px solid var(--bordo); padding: 4px 10px; }
+.livello b { color: var(--testo); }
+.livello.attivo { border-left-color: var(--rosso); }
+.livello.spento { opacity: 0.6; }

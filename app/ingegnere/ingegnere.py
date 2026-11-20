@@ -108,6 +108,10 @@ FRASI_FISSE = [
     "Danno al motore. Gestisci.",
     "Bandiera a scacchi. Bel lavoro.",
     "Ali in modalità rettilineo!",
+    "Macchina a sinistra.",
+    "Macchina a destra.",
+    "Macchine ai due lati.",
+    "Libero.",
 ]
 
 

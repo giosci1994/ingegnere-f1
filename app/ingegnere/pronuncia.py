@@ -2,7 +2,7 @@
 
 - Parole intere (anche di più parole, «safety car»), senza distinzione di maiuscole; si prova
   prima la voce più lunga, così «virtual safety car» vince su «safety car».
-- La tabella di partenza (BASE) sta qui; le modifiche di Giovanni stanno in
+- La tabella di partenza (BASE) sta qui; le modifiche dell'utente stanno in
   `dati/pronuncia.json` (sopravvivono ai rifacimenti del container): `{"voci": {parola: grafia},
   "tolte": [parola, ...]}`. Una voce sua con la stessa parola vince su quella di partenza.
 - La cache dei WAV usa il testo già sostituito (voce.py): cambiare una voce = audio nuovo.
@@ -73,7 +73,7 @@ class Pronuncia:
     def __init__(self, percorso):
         self.percorso = percorso
         self._lock = threading.Lock()
-        self.mie = {}            # parola -> grafia (di Giovanni)
+        self.mie = {}            # parola -> grafia (dell'utente)
         self.tolte = set()       # parole di partenza tolte (minuscole)
         if percorso and os.path.exists(percorso):
             try:

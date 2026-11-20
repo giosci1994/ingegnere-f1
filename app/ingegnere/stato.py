@@ -33,6 +33,7 @@ class Stato:
         self.finale = None
         self.giocatore = 255
         self.n_auto = 0
+        self.set_gomme = {}                  # car_idx -> pacchetto tyre sets (set di gomme)
 
     # ---- ingresso ----
     def aggiorna(self, pk, mittente=None):
@@ -61,6 +62,8 @@ class Stato:
                 self.nomi[i] = nome
         elif pk.id == P.HISTORY:
             self.storia[pk.dati.car_idx] = pk.dati
+        elif pk.id == P.TYRESETS:
+            self.set_gomme[pk.dati.car_idx] = pk.dati
         elif pk.id == P.FINAL:
             self.finale = pk.dati
         elif pk.id == P.EVENT:

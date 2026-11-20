@@ -6,3 +6,6 @@ voci/*.onnx.json
 prove/schermate/
 SCHELETRO.md
 .env
+
+# ricerca locale, solo sul server
+docs/ricerca-progetti-simili.md

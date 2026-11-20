@@ -60,6 +60,10 @@ small web app for your phone. Everything runs locally in one Docker container.**
   «Prova» (try) button.
 - **Responsive page**: phone (portrait and landscape), tablet and PC, with more columns on wide
   screens.
+- **More race calls** (0.5.0): rivals' real tyre wear in the undercut, tyre and fuel forecast with
+  a fuel target per lap, which tyre set to fit, pit under safety car, pace against the cars ahead
+  and behind, sector times, a «where am I losing time?» button, a 30-second radio mute button and
+  a spotter for cars alongside (off by default).
 - **A real radio**: one phrase at a time, priorities (safety > box/penalties >
   tyres/fuel/damage/weather > gaps/positions > the rest), no overlaps, cooldowns, three verbosity
   levels. Local voice ([Piper](https://github.com/OHF-Voice/piper1-gpl)) with beeps, band-pass,
