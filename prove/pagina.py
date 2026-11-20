@@ -3,7 +3,7 @@
     python3 prove/pagina.py [--url http://127.0.0.1:8777] [--cartella prove/schermate]
 
 Apre la pagina a larghezza di telefono, controlla che non ci siano errori JavaScript, apre le
-schede Avvisi, Riassunti (con il primo riassunto) e Traiettoria (con la curva 4), e salva le foto.
+schede Avvisi (con il dizionario di pronuncia e i tasti), Riassunti (con il primo riassunto) e Traiettoria (con la curva 4), e salva le foto.
 Esce con 1 se qualcosa non va.
 """
 import argparse
@@ -78,9 +78,18 @@ def main():
         time.sleep(1)
         n_cat = js("return document.querySelectorAll('#categorie input').length;")
         scelta = js("return document.body.innerText.includes('Giocatore 2');")
+        n_voci = js("return document.querySelectorAll('#pronuncia li').length;")
+        n_tasti = js("return document.querySelectorAll('#tasti select').length;")
+        nuovi = js("return ['silenzio_qualifica', 'una_curva_alla_volta'].filter(i => document.getElementById(i)).length;")
         foto("p-avvisi.png")
-        if n_cat < 16:
-            problemi.append(f"interruttori degli avvisi: {n_cat} invece di 16")
+        if n_cat < 17:
+            problemi.append(f"interruttori degli avvisi: {n_cat} invece di 17")
+        if n_voci < 30:
+            problemi.append(f"dizionario di pronuncia: {n_voci} voci")
+        if n_tasti != 12:
+            problemi.append(f"tasti UDP Action: {n_tasti} invece di 12")
+        if nuovi != 2:
+            problemi.append("mancano gli interruttori del silenzio radio o della curva alla volta")
         if scelta:
             problemi.append("c'è ancora la scelta del giocatore")
         clicca('nav button[data-vista="gare"]')
@@ -108,7 +117,7 @@ def main():
         errori = js("return window.__errori;")
         if errori:
             problemi.append(f"errori JavaScript: {errori}")
-        print(f"interruttori {n_cat}, schede del riassunto {schede}, linee {linee}, bottoni curve {bottoni}")
+        print(f"interruttori {n_cat}, voci di pronuncia {n_voci}, tasti {n_tasti}, schede del riassunto {schede}, linee {linee}, bottoni curve {bottoni}")
         chiama(base, "DELETE", s)
     finally:
         gd.terminate()

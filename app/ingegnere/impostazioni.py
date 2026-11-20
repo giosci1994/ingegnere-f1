@@ -21,7 +21,8 @@ CATEGORIE = {
     "ali": ("Ali mobili 2026", 4),
     "giri": ("Giri mancanti, partenza, arrivo", 5),
     "record": ("Tempi sul giro e record personali", 5),
-    "guida": ("Staccate e uscite di curva (rispetto al tuo giro migliore)", 5),
+    "guida": ("Staccate e uscite di curva: come migliorare (rispetto al tuo giro migliore)", 5),
+    "domande": ("Risposte alle domande dai tasti (UDP Action)", 2),
 }
 
 VERBOSITA = {1: "essenziale", 2: "normale", 3: "tutto"}
@@ -39,7 +40,24 @@ PREDEFINITE = {
     "assetto": True,          # i consigli d'assetto nel riassunto
     "pilota": "io",           # chi guida: si salva con i giri, per confrontarli
     "max_registrazioni_mb": 2000,
+    "silenzio_qualifica": True,   # nel giro lanciato in qualifica solo gli avvisi urgenti (priorità 1–2)
+    "una_curva_alla_volta": True, # in prova: i consigli su una curva sola (la peggiore) finché migliora
+    "tasti": {},                  # UDP Action 1–12 -> domanda (domande.py); riempito sotto
 }
+
+# le domande che si possono fare con i tasti della PS5 (domande.py le risponde)
+DOMANDE = {
+    "strategia": "Strategia: finestra box, undercut, dove esci",
+    "gomme": "Gomme: usura e temperature",
+    "distacchi": "Distacchi davanti e dietro",
+    "carburante": "Carburante",
+    "danni": "Danni",
+    "passo": "Com'è il passo (ultimo giro contro il migliore)",
+    "ripeti": "Ripeti l'ultima frase",
+}
+# di partenza: le prime sette UDP Action (si cambiano dall'app)
+TASTI_PREDEFINITI = {str(n): (list(DOMANDE)[n - 1] if n <= len(DOMANDE) else "") for n in range(1, 13)}
+PREDEFINITE["tasti"] = dict(TASTI_PREDEFINITI)
 
 
 class Impostazioni:
@@ -60,7 +78,11 @@ class Impostazioni:
                 for c, on in v.items():
                     if c in CATEGORIE:
                         self.valori["avvisi"][c] = bool(on)
-            elif k in PREDEFINITE and k != "avvisi":
+            elif k == "tasti" and isinstance(v, dict):
+                for n, d in v.items():
+                    if str(n) in self.valori["tasti"] and (d in DOMANDE or not d):
+                        self.valori["tasti"][str(n)] = d or ""
+            elif k in PREDEFINITE and k not in ("avvisi", "tasti"):
                 tipo = type(PREDEFINITE[k])
                 try:
                     v = tipo(v)
@@ -101,4 +123,5 @@ class Impostazioni:
             "categorie": [{"id": k, "etichetta": v[0], "priorita": v[1]}
                           for k, v in CATEGORIE.items()],
             "verbosita": VERBOSITA,
+            "domande": DOMANDE,
         }

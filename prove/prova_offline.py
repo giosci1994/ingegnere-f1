@@ -3,7 +3,9 @@
     cd app && python3 ../prove/prova_offline.py FILE.f1rec.gz [--verbosita 3]
 
 Rilegge una registrazione, la passa a Stato + Ingegnere come fa il server (eventi subito,
-regole ogni 0,2 s), filtra come la Radio (categoria accesa e verbosità) e stampa i messaggi.
+regole ogni 0,2 s, tasti UDP Action → domande), filtra come la Radio (categoria accesa,
+verbosità, silenzio radio nel giro lanciato in qualifica: le frasi tenute si stampano con
+«tenuta» e poi con «dopo il giro») e stampa i messaggi.
 Alla fine: conteggio per categoria, categorie mai scattate, pacchetti scartati, riassunto.
 Esce con 1 se una categoria non scatta mai o se manca il riassunto.
 """
@@ -15,6 +17,7 @@ import tempfile
 from collections import Counter
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "app"))
+from ingegnere import domande as D  # noqa: E402
 from ingegnere import pacchetti as P  # noqa: E402
 from ingegnere import riassunto as R  # noqa: E402
 from ingegnere.analisi import Analisi  # noqa: E402
@@ -22,6 +25,7 @@ from ingegnere.strategia import Piste  # noqa: E402
 from ingegnere.traccia import Biblioteca  # noqa: E402
 from ingegnere.impostazioni import CATEGORIE, Impostazioni  # noqa: E402
 from ingegnere.ingegnere import Ingegnere  # noqa: E402
+from ingegnere.radio import VALE_DOPO  # noqa: E402
 from ingegnere.registratore import leggi  # noqa: E402
 from ingegnere.stato import Stato  # noqa: E402
 
@@ -49,13 +53,35 @@ def main():
     detti, conta, chiavi = [], Counter(), Counter()
     riassunti = {}
     prossimo = 0.0
+    tasti = D.Tasti()
+    tenuti, in_silenzio = [], False
+    conta_silenzio = Counter()
 
     def ammesso(m):
         return imp.acceso(m.categoria) and imp["verbosita"] >= m.livello
 
     def dici(slot, msgs, t):
+        nonlocal in_silenzio
+        zitto = an.giro_lanciato(st)
+        if not zitto and in_silenzio:
+            in_silenzio = False
+            rimessi = list(tenuti)
+            tenuti.clear()
+            for m in rimessi:
+                conta_silenzio["dopo il giro"] += 1
+                if not o.quieto:
+                    print(f"{t:7.1f}  (dopo il giro)")
+                dici(slot, [m], t)
         for m in msgs:
             if not ammesso(m):
+                continue
+            if zitto and m.priorita >= 3 and m.categoria != "record":
+                in_silenzio = True
+                conta_silenzio["tenute" if m.categoria in VALE_DOPO else "lasciate"] += 1
+                if not o.quieto:
+                    print(f"{t:7.1f}  G{slot} P{m.priorita} {m.categoria:<10} {m.chiave:<16} [tenuta: giro lanciato] {m.testo}")
+                if m.categoria in VALE_DOPO:
+                    tenuti[:] = [x for x in tenuti if x.chiave != m.chiave] + [m]
                 continue
             detti.append((t, slot, m))
             conta[m.categoria] += 1
@@ -91,7 +117,14 @@ def main():
             an.campione(st)
         elif pk.id == P.LAP and pk.dati is not None:
             soste += an.strategia.osserva(st)
-        if pk.id == P.EVENT and pk.dati is not None:
+        if pk.id == P.EVENT and pk.dati is not None and P.codice_evento(pk) == "BUTN":
+            for n in tasti.premuti(pk.dati.details.buttons.button_status, imp):
+                dom = imp["tasti"].get(str(n))
+                for slot, i in ing.items():
+                    m = D.rispondi(dom, st, i, an, detti[-1][2].testo if detti else None) if dom else None
+                    if m is not None:
+                        dici(slot, [m], st.tempo())
+        elif pk.id == P.EVENT and pk.dati is not None:
             for slot, i in ing.items():
                 dici(slot, i.evento(st, pk), pk.header.session_time)
             if P.codice_evento(pk) == "SEND":
@@ -117,6 +150,8 @@ def main():
     raffica = [(k, n) for k, n in chiavi.items() if n > 6]
     print("chiavi ripetute più di 6 volte:", raffica or "nessuna")
     print("pacchetti scartati:", dict(st.scartati) or 0, dict(st.taglie_scartate) or "")
+    if conta_silenzio:
+        print("silenzio radio (giro lanciato in qualifica):", dict(conta_silenzio))
     print("formato:", st.formato, "· pacchetti ricevuti:", sum(st.ricevuti.values()))
     for slot, r in riassunti.items():
         print(f"\n== riassunto giocatore {slot} ==")

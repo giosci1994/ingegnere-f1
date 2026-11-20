@@ -1,8 +1,9 @@
 """Curve, staccate e uscite: si trovano sul giro di riferimento e si misurano su ogni giro.
 
 Le curve sono quelle del giro di riferimento (il migliore del giocatore): un minimo di
-velocità preceduto, nei 400 m prima, da almeno 25 km/h in più. «Curva N» è la nostra
-numerazione (in ordine sul giro), non sempre quella ufficiale del circuito.
+velocità preceduto, nei 400 m prima, da almeno 25 km/h in più. `n` è la nostra numerazione (in
+ordine sul giro); il nome che si dice alla radio (`nome`, «2» o «13 e 14») è quello ufficiale
+del circuito quando la pista è nella tabella di `numeri_curve.py`.
 
 Per ogni curva e ogni giro:
   frenata   distanza in cui il freno supera 0,1 nei 400 m prima del minimo (None se non frena)
@@ -12,6 +13,11 @@ Per ogni curva e ogni giro:
   bloccaggio  slittamento anteriore sotto -0,2 (o posteriore sotto -0,25) in frenata, almeno 2 campioni
   pattina   slittamento posteriore sopra 0,2 in uscita, almeno 2 campioni
   veleggia  secondi senza gas né freno (gas < 0,1 e freno < 0,05) sopra i 100 km/h nel tratto
+  rilascio  distanza in cui il freno torna sotto 0,1 dopo la frenata, prima del minimo
+  sterzo_uscita  sterzo medio (valore assoluto) dal minimo a 150 m dopo
+
+`causa()` dice che cosa è successo (per le tabelle); `consiglio()` dice come migliorare, con il
+dato (per la radio e il riassunto).
 """
 
 from bisect import bisect_left
@@ -112,7 +118,27 @@ def misura(c, cu, idx=None):
         if c["th"][i] is not None and c["th"][i] > 0.9:
             gas = c["d"][i]
             break
-    out = {"frenata": frenata, "vmin": vmin, "gas": gas}
+    rilascio = None
+    if frenata is not None:
+        dentro = False
+        for i in idx[a:]:
+            if i > imin:
+                break
+            b_ = c["br"][i] or 0
+            if b_ > 0.1:
+                dentro = True
+            elif dentro:
+                rilascio = c["d"][i]
+                break
+    sterzi = []
+    if c.get("st"):
+        for i in idx[idx.index(imin):] if imin in idx else []:
+            if c["d"][i] is None or c["d"][i] > c["d"][imin] + 150:
+                break
+            if c["st"][i] is not None:
+                sterzi.append(abs(c["st"][i]))
+    out = {"frenata": frenata, "vmin": vmin, "gas": gas, "rilascio": rilascio,
+           "sterzo_uscita": round(sum(sterzi) / len(sterzi), 3) if sterzi else None}
     if "inizio" in cu:
         t0, t1 = tempo_a(c, cu["inizio"], idx), tempo_a(c, cu["fine"], idx)
         out["tempo"] = round(t1 - t0, 3) if t0 is not None and t1 is not None else None
@@ -175,6 +201,43 @@ def causa(m, r):
     return None, None
 
 
+def _metri(x):
+    """Arrotondati a 5 m, come si dicono alla radio."""
+    return max(5, int(5 * round(abs(x) / 5)))
+
+
+def consiglio(m, r):
+    """Come migliorare la curva (m = misura del giro, r = riferimento): (chiave, frase) o (None, None).
+    Stesse cause di `causa()`, ma la frase dice che cosa fare, con il dato."""
+    if m.get("bloccaggio") and not r.get("bloccaggio"):
+        return "bloccaggio", "evita il bloccaggio: pesta meno forte all'inizio della frenata e rilascia piano"
+    if m["frenata"] is not None and r["frenata"] is not None:
+        diff = r["frenata"] - m["frenata"]          # positivo = ha frenato prima
+        # oltre 80 m non è un punto di frenata da correggere (traffico, bandiere, un errore):
+        # non si dice «frena 140 metri più tardi», si guarda il resto
+        if 12 <= diff <= 80:
+            return "frenata_presto", f"frena {_metri(diff)} metri più tardi"
+        if -80 <= diff <= -10 and m["vmin"] is not None and r["vmin"] is not None and m["vmin"] < r["vmin"] - 4:
+            return "frenata_lunga", f"frena {_metri(diff)} metri prima, così non arrivi lungo"
+    if m["vmin"] is not None and r["vmin"] is not None and r["vmin"] - m["vmin"] >= 6:
+        k = int(round(r["vmin"] - m["vmin"]))
+        mr, rr = m.get("rilascio"), r.get("rilascio")
+        if mr is not None and rr is not None and mr - rr >= 15:
+            return "lento_centro", f"rilascia il freno {_metri(mr - rr)} metri prima e porta {k} chilometri orari in più a centro curva"
+        return "lento_centro", f"rilascia il freno più dolcemente e porta {k} chilometri orari in più a centro curva"
+    if m.get("pattina") and not r.get("pattina"):
+        return "pattina", "dai gas più progressivo in uscita, pattini"
+    if m["gas"] is not None and r["gas"] is not None and m["gas"] - r["gas"] >= 15:
+        k = _metri(m["gas"] - r["gas"])
+        su, sr_ = m.get("sterzo_uscita"), r.get("sterzo_uscita")
+        if su is not None and sr_ is not None and su > sr_ * 1.15 and su - sr_ > 0.03:
+            return "gas_tardi", f"meno sterzo in uscita: raddrizza prima e dai gas pieno {k} metri prima"
+        return "gas_tardi", f"dai gas pieno {k} metri prima"
+    if m.get("veleggia", 0) - r.get("veleggia", 0) >= 0.4:
+        return "veleggia", "non restare senza gas né freno: passa prima dal freno al gas"
+    return None, None
+
+
 def confronta(c, rif, curve=None):
     """Confronto curva per curva di un giro con il riferimento."""
     curve = curve if curve is not None else trova_curve(rif)
@@ -184,6 +247,8 @@ def confronta(c, rif, curve=None):
         m = misura(c, cu)
         delta = round(m["tempo"] - r["tempo"], 3) if m.get("tempo") is not None and r.get("tempo") is not None else None
         k, frase = causa(m, r)
-        out.append({"curva": cu["n"], "apice": cu["apice"], "delta": delta, "causa": k, "frase": frase,
+        _, come = consiglio(m, r)
+        out.append({"curva": cu["n"], "nome": cu.get("nome", str(cu["n"])), "apice": cu["apice"],
+                    "delta": delta, "causa": k, "frase": frase, "consiglio": come,
                     "giro": m, "riferimento": r})
     return out

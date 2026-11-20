@@ -38,3 +38,6 @@ jobs:
           docker run --rm -v "$PWD/prove:/prove:ro" ingegnere-f1:ci sh -ec '
             python -m ingegnere.simulatore --formato 2025 --uscita /tmp/gara-2025.f1rec.gz
             python /prove/prova_offline.py /tmp/gara-2025.f1rec.gz --quieto'
+
+      - name: Phase 3 (pronunciation, buttons, recorder, corner numbers, coaching)
+        run: docker run --rm -v "$PWD/prove:/prove:ro" ingegnere-f1:ci python /prove/prova_fase3.py

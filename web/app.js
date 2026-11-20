@@ -137,7 +137,7 @@ const fmt = (x, suff = "") => (x === null || x === undefined ? "–" : x + suff)
 function mostraStato(s) {
   const p = $("#ps5");
   if (s.connesso) {
-    p.textContent = `PS5 collegata · ${s.sessione || ""}${s.pista ? " · " + s.pista : ""}${s.in_pausa ? " · in pausa" : ""}`;
+    p.textContent = `PS5 collegata · ${s.sessione || ""}${s.pista ? " · " + s.pista : ""}${s.in_pausa ? " · in pausa" : ""}${s.silenzio ? " · silenzio radio" : ""}`;
     p.className = "ps5 acceso";
   } else {
     p.textContent = s.ricevuti ? "PS5: nessun dato da qualche secondo" : "PS5: in attesa dei dati…";
@@ -155,6 +155,9 @@ function mostraStato(s) {
   if (!$("#frasi li:not(.vuoto)") && s.frasi && s.frasi.length) {
     s.frasi.forEach((f) => aggiungiFrase(f));
   }
+  const tk = s.tasti || {};
+  $("#t-azione").textContent = tk.azione ? `${tk.azione.nome} alle ${tk.azione.ora}${tk.azione.domanda ? " → " + ((impostazioni && impostazioni.domande[tk.azione.domanda]) || tk.azione.domanda) : " (nessuna domanda assegnata)"}` : "nessuna";
+  $("#t-tasto").textContent = tk.tasto ? `${tk.tasto.nome} alle ${tk.tasto.ora}` : "nessuno";
   const dl = $("#diagnosi");
   const righe = [
     ["PS5", s.connesso ? `collegata (${s.mittente})` : "non collegata"],
@@ -205,6 +208,9 @@ function disegnaImpostazioni() {
   $("#registra").checked = v.registra;
   $("#salva_giri").checked = v.salva_giri;
   $("#assetto").checked = v.assetto;
+  $("#silenzio_qualifica").checked = v.silenzio_qualifica;
+  $("#una_curva_alla_volta").checked = v.una_curva_alla_volta;
+  disegnaTasti(v.tasti || {});
   if (document.activeElement !== $("#pilota")) $("#pilota").value = v.pilota;
 }
 
@@ -229,6 +235,73 @@ $("#registra").addEventListener("change", (e) => salva({ registra: e.target.chec
 $("#salva_giri").addEventListener("change", (e) => salva({ salva_giri: e.target.checked }));
 $("#assetto").addEventListener("change", (e) => salva({ assetto: e.target.checked }));
 $("#pilota").addEventListener("change", (e) => salva({ pilota: e.target.value }));
+$("#silenzio_qualifica").addEventListener("change", (e) => salva({ silenzio_qualifica: e.target.checked }));
+$("#una_curva_alla_volta").addEventListener("change", (e) => salva({ una_curva_alla_volta: e.target.checked }));
+
+// ---------- domande dai tasti (UDP Action 1–12) ----------
+function disegnaTasti(tasti) {
+  const box = $("#tasti");
+  if (box.contains(document.activeElement)) return;
+  box.innerHTML = "";
+  const domande = impostazioni.domande || {};
+  for (let n = 1; n <= 12; n++) {
+    const l = document.createElement("label"); l.textContent = "UDP Action " + n; l.htmlFor = "tasto-" + n;
+    const sel = document.createElement("select"); sel.className = "campo"; sel.id = "tasto-" + n;
+    const vuota = document.createElement("option"); vuota.value = ""; vuota.textContent = "— niente —"; sel.append(vuota);
+    Object.entries(domande).forEach(([k, et]) => { const o = document.createElement("option"); o.value = k; o.textContent = et; sel.append(o); });
+    sel.value = tasti[String(n)] || "";
+    sel.addEventListener("change", () => salva({ tasti: { [String(n)]: sel.value } }));
+    box.append(l, sel);
+  }
+}
+
+// ---------- pronuncia ----------
+async function suonaProva(corpo, bottone) {
+  if (!collegato) await collega();
+  const testo = bottone.textContent;
+  bottone.disabled = true; bottone.textContent = "…";
+  try {
+    const r = await fetch("/api/prova", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo) });
+    const d = await r.json();
+    arriva({ ...d, priorita: 0, categoria: "prova", ora: new Date().toLocaleTimeString("it-IT") });
+  } finally { bottone.disabled = false; bottone.textContent = testo; }
+}
+async function chiamaPronuncia(corpo) {
+  const r = await fetch("/api/pronuncia", corpo ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo) } : undefined);
+  if (!r.ok) { $("#salvato").textContent = "Non salvato: " + (await r.text()); return; }
+  disegnaPronuncia((await r.json()).voci);
+  if (corpo) { $("#salvato").textContent = "Salvato sul server."; clearTimeout(salvaTimer); salvaTimer = setTimeout(() => ($("#salvato").textContent = ""), 2000); }
+}
+function disegnaPronuncia(voci) {
+  const ul = $("#pronuncia");
+  ul.innerHTML = "";
+  voci.forEach((v) => {
+    const li = document.createElement("li");
+    if (v.origine === "tolta") li.className = "tolta";
+    const p = document.createElement("span"); p.textContent = v.parola;
+    const g = document.createElement("input"); g.type = "text"; g.maxLength = 40; g.value = v.grafia; g.setAttribute("aria-label", "Come si dice " + v.parola);
+    const az = document.createElement("div"); az.className = "azioni";
+    const b = (t, f, titolo) => { const x = document.createElement("button"); x.textContent = t; x.title = titolo; x.addEventListener("click", () => f(x)); az.append(x); return x; };
+    b("▶︎", (x) => suonaProva({ grafia: g.value }, x), "Prova");
+    if (v.origine === "tolta") {
+      g.disabled = true;
+      b("↺", () => chiamaPronuncia({ parola: v.parola, rimetti: true }), "Rimetti");
+    } else {
+      b("✓", () => chiamaPronuncia({ parola: v.parola, grafia: g.value }), "Salva");
+      b(v.origine === "cambiata" ? "↺" : "✕", () => chiamaPronuncia({ parola: v.parola, togli: true }),
+        v.origine === "cambiata" ? "Torna a quella di partenza" : "Togli");
+    }
+    const nota = document.createElement("small");
+    nota.textContent = { partenza: "di partenza", mia: "tua", cambiata: `cambiata (di partenza: ${v.partenza})`, tolta: "tolta" }[v.origine] || "";
+    li.append(p, g, az, nota);
+    ul.append(li);
+  });
+}
+$("#p-prova").addEventListener("click", (e) => suonaProva({ grafia: $("#p-grafia").value || $("#p-parola").value }, e.target));
+$("#p-salva").addEventListener("click", async () => {
+  await chiamaPronuncia({ parola: $("#p-parola").value, grafia: $("#p-grafia").value });
+  $("#p-parola").value = ""; $("#p-grafia").value = "";
+});
 
 $("#prova-voce").addEventListener("click", async () => {
   if (!collegato) await collega();
@@ -348,11 +421,15 @@ function sezioniFase2(r, box) {
     const rif = r.riferimento || {};
     riga(s, `Rispetto al giro migliore${rif.da_biblioteca ? " salvato" : ""}${rif.giro ? " (giro " + rif.giro + ", " + sec(rif.tempo_ms) + ")" : ""}.`);
     if (r.guida.dove_perdi.length)
-      riga(s, "Dove perdi di più: " + r.guida.dove_perdi.map((c) => `curva ${c.curva} (${c.perdita_media_s.toFixed(2)} s a giro${c.causa_frequente ? ", " + c.causa_frequente : ""})`).join(" · "));
-    tabella(s, ["Curva", "Apice m", "Frenata m", "V min", "Gas m", "Perdi s", "Perché"],
+      riga(s, "Dove perdi di più: " + r.guida.dove_perdi.map((c) => `${String(c.curva).includes(" e ") ? "curve" : "curva"} ${c.curva} (${c.perdita_media_s.toFixed(2)} s a giro${c.causa_frequente ? ", " + c.causa_frequente : ""})`).join(" · "));
+    tabella(s, ["Curva", "Apice m", "Frenata m", "V min", "Gas m", "Perdi s", "Perché", "Come migliorare"],
       r.guida.curve.map((c) => [c.curva, c.apice_m, c.frenata_rif_m, c.vmin_rif, c.gas_rif_m,
-        c.perdita_media_s == null ? null : c.perdita_media_s.toFixed(2), c.causa_frequente]));
-    riga(s, "«Curva N» è la nostra numerazione, in ordine sul giro. Frenata, velocità minima e gas sono quelli del giro migliore; «perdi» è la media sugli altri giri puliti.").className = "nota";
+        c.perdita_media_s == null ? null : c.perdita_media_s.toFixed(2), c.causa_frequente, c.consiglio]));
+    if (r.guida.sistemate && r.guida.sistemate.length) riga(s, "Curve sistemate in prova: " + r.guida.sistemate.join(", ") + ".");
+    riga(s, (r.guida.numerazione === "ufficiale"
+      ? "Numeri delle curve: quelli ufficiali del circuito («1 e 2» = una chicane o una esse). "
+      : "Numeri delle curve: la nostra numerazione, in ordine sul giro (per questa pista non c'è la tabella ufficiale). ") +
+      "Frenata, velocità minima e gas sono quelli del giro migliore; «perdi» è la media sugli altri giri puliti.").className = "nota";
   }
   if (r.assetto) {
     const s = scheda("Assetto (consigli indicativi)", box);
@@ -428,19 +505,19 @@ async function confronta() {
   tutto.addEventListener("click", () => { zoomCurva = null; disegna(); segna(tutto); });
   cb.append(tutto);
   confrontoDati.apici.forEach((c) => {
-    const x = document.createElement("button"); x.textContent = "Curva " + c.curva;
+    const x = document.createElement("button"); x.textContent = (String(c.curva).includes(" e ") ? "Curve " : "Curva ") + c.curva;
     x.addEventListener("click", () => { zoomCurva = c; disegna(); segna(x); });
     cb.append(x);
   });
   disegna();
   const box = $("#t-tabella");
   box.innerHTML = "";
-  tabella(box, ["Curva", "Delta s", "Frenata m", "V min", "Gas m", "Perché"],
-    confrontoDati.curve.map((c) => [c.curva, c.delta == null ? null : (c.delta > 0 ? "+" : "") + c.delta.toFixed(2),
+  tabella(box, ["Curva", "Delta s", "Frenata m", "V min", "Gas m", "Perché", "Come migliorare"],
+    confrontoDati.curve.map((c) => [c.nome || c.curva, c.delta == null ? null : (c.delta > 0 ? "+" : "") + c.delta.toFixed(2),
       `${metri(c.giro.frenata)} / ${metri(c.riferimento.frenata)}`,
       `${t(c.giro.vmin)} / ${t(c.riferimento.vmin)}`,
       `${metri(c.giro.gas)} / ${metri(c.riferimento.gas)}`,
-      c.frase]));
+      c.frase, c.consiglio]));
   riga(box, "Nelle colonne: giro rosso / giro grigio. Delta positivo = il giro rosso è più lento in quella curva.").className = "nota";
 }
 function segna(btn) { $$("#t-curve button").forEach((b) => b.classList.toggle("attivo", b === btn)); }
@@ -474,5 +551,6 @@ $("#t-b").addEventListener("change", confronta);
 // ---------- avvio ----------
 if (/^\d+\.\d+\.\d+\.\d+$/.test(location.hostname)) $("#ip-server").textContent = location.hostname;
 caricaImpostazioni();
+chiamaPronuncia();
 apri();
 { const b = document.querySelector(`nav button[data-vista="${location.hash.slice(1)}"]`); if (b) b.click(); }

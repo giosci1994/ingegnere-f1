@@ -15,7 +15,8 @@ Il giocatore (indice 0) parte P8 e ha un copione:
 - giro 4 contatto, danno all'ala, penalità; bloccaggio in curva 2; l'auto davanti si ferma;
 - giro 5 l'auto dietro si ferma, finestra box, ali in modalità curva sul rettilineo, sosta a fine giro;
 - giro 6 VSC, guasto ERS, freni caldi, pattinamento e gas tardi in curva 5;
-- giro 7 pioggia, giro veloce; poi bandiera a scacchi, classifica finale, fine sessione.
+- giro 7 pioggia, giro veloce; poi bandiera a scacchi, classifica finale, fine sessione;
+- tasti (evento BUTN): UDP Action 2 al giro 3, 1 al giro 5, 7 al giro 6 (le domande).
 Il giocatore sottosterza nelle curve lente, le posteriori scaldano più delle anteriori e lo
 speed trap è più basso degli altri: servono a far scattare i consigli d'assetto.
 `--sessione prove --pilota-lento` fa una sessione di prove più lenta, da confrontare.
@@ -337,6 +338,13 @@ class Sim:
             o.evento("PENA", penalty={"penalty_type": 4, "infringement_type": 9, "vehicle_idx": 0,
                                       "other_vehicle_idx": 255, "time": 5, "lap_num": 4,
                                       "places_gained": 255})
+        # domande dai tasti (fase 3): UDP Action 2 (gomme) al giro 3, 1 (strategia) al giro 5,
+        # 7 (ripeti) al giro 6; con R2 (gas) tenuto premuto, per provare il fronte di salita
+        for giro_t, frz, bit in ((3, 0.2, 0x00200000), (5, 0.3, 0x00100000), (6, 0.5, 0x00100000 << 6)):
+            if g == giro_t and fr > frz and o.una_volta(f"tasto{giro_t}"):
+                o.evento("BUTN", buttons={"button_status": 0x1000 | bit})
+                o.evento("BUTN", buttons={"button_status": 0x1000 | bit})
+                o.evento("BUTN", buttons={"button_status": 0x1000})
         if g == 6 and fr > 0.7 and not o.flashback_fatto:
             o.flashback_fatto = True
             o.evento("FLBK", flashback={"flashback_frame_identifier": o.frame - 80,

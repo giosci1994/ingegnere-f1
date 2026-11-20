@@ -115,8 +115,9 @@ def durata_wav(percorso):
 
 
 class Voce:
-    def __init__(self, cartella_voci, cartella_cache):
+    def __init__(self, cartella_voci, cartella_cache, pronuncia=None):
         self.cartella_voci = cartella_voci
+        self.pronuncia = pronuncia      # il dizionario (pronuncia.py): si applica prima di Piper
         self.cache = cartella_cache
         os.makedirs(cartella_cache, exist_ok=True)
         self._voci = {}
@@ -139,8 +140,12 @@ class Voce:
     def percorso(self, chiave):
         return os.path.join(self.cache, chiave + ".wav")
 
-    def sintetizza(self, testo, voce="riccardo", velocita=1.0, effetto=2):
-        """Restituisce (chiave, durata in secondi). Blocca: va chiamata in un thread."""
+    def sintetizza(self, testo, voce="riccardo", velocita=1.0, effetto=2, crudo=False):
+        """Restituisce (chiave, durata in secondi). Blocca: va chiamata in un thread.
+        Il testo passa dal dizionario di pronuncia (salvo `crudo`); la chiave della cache è fatta
+        con il testo già sostituito, così una voce cambiata nel dizionario dà un audio nuovo."""
+        if self.pronuncia is not None and not crudo:
+            testo = self.pronuncia.applica(testo)
         k = self.chiave(testo, voce, velocita, effetto)
         p = self.percorso(k)
         if os.path.exists(p):

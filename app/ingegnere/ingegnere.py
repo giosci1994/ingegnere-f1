@@ -530,9 +530,8 @@ class Ingegnere:
                     and ses.weather < 3:
                 self._m(out, t, "gomme", "gomme_fredde", "Gomme fredde. Scaldale.",
                         attesa=180, livello=3, ttl=10, fisso=True)
-            if max(tel.brakes_temperature) >= 1050:
-                self._m(out, t, "gomme", "freni", "Freni caldi. Gestisci in frenata.",
-                        attesa=180, livello=2, ttl=10, fisso=True)
+            # i freni caldi stanno in analisi.py (_freni): servono le curve e un orologio
+            # che non torni indietro con i flashback
 
     # ---------- batteria e overtake ----------
     def _ers(self, out, t, sta, t2, gara, lap):

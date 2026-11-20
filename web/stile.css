@@ -81,3 +81,13 @@ td.no { color: var(--rosso); text-decoration: line-through; } tr.migliore td { c
 .consiglio { border-left: 3px solid var(--blu); padding: 6px 10px; margin: 6px 0; background: #141a22; border-radius: 6px; }
 .consiglio small { display: block; color: var(--tenue); }
 video#sveglia { position: fixed; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; bottom: 0; left: 0; }
+.riga-bottoni { display: flex; gap: 8px; margin: 8px 0; }
+.pronuncia-nuova input { min-width: 0; }
+.voci li { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; align-items: center; }
+.voci li input { min-width: 0; background: var(--sfondo); color: var(--testo); border: 1px solid var(--bordo); border-radius: 8px; padding: 6px 8px; font: inherit; }
+.voci li .azioni { display: flex; gap: 4px; }
+.voci li button { background: var(--pannello); color: var(--testo); border: 1px solid var(--bordo); border-radius: 8px; padding: 6px 8px; }
+.voci li.tolta span { color: var(--tenue); text-decoration: line-through; }
+.voci li small { grid-column: 1 / -1; color: var(--tenue); }
+.tasti { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; font-size: 14px; }
+.tasti select { margin-top: 0; }

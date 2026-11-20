@@ -11,11 +11,14 @@ import time
 
 from aiohttp import web, WSMsgType
 
+from . import domande as D
+from . import numeri_curve as N
 from . import pacchetti as P
 from . import riassunto as R
 from .impostazioni import Impostazioni
 from .analisi import Analisi
 from .ingegnere import FRASI_FISSE, Ingegnere, Messaggio
+from .pronuncia import Pronuncia
 from .radio import Radio
 from .registratore import Registratore
 from .stato import Stato
@@ -40,7 +43,10 @@ class App:
         os.makedirs(DATI, exist_ok=True)
         self.imp = Impostazioni(os.path.join(DATI, "impostazioni.json"))
         self.stato = Stato()
-        self.voce = Voce(VOCI, os.path.join(DATI, "cache"))
+        self.pronuncia = Pronuncia(os.path.join(DATI, "pronuncia.json"))
+        self.voce = Voce(VOCI, os.path.join(DATI, "cache"), self.pronuncia)
+        self.tasti = D.Tasti()
+        self.finale_salvata = None   # session_uid della classifica finale già messa nel riassunto
         self.reg = Registratore(os.path.join(DATI, "registrazioni"), self.imp)
         self.cartella_riassunti = os.path.join(DATI, "riassunti")
         self.ing = {1: Ingegnere(1)}   # un giocatore solo: l'auto di player_car_index
@@ -91,12 +97,34 @@ class App:
             self.nuove_soste += self.analisi.strategia.osserva(self.stato)
         if pk.id == P.EVENT and pk.dati is not None:
             code = P.codice_evento(pk)
+            if code == "BUTN":
+                self.domande(pk.dati.details.buttons.button_status)
+                return
             for slot, ing in self.ing.items():
                 self.radio[slot].metti(ing.evento(self.stato, pk))
             if code == "SEND":
                 self.chiudi_sessione("fine sessione")
         elif pk.id == P.FINAL and pk.dati is not None:
-            self.chiudi_sessione("classifica finale")
+            # nei menu la classifica arriva ogni 5 secondi: nel riassunto una volta sola
+            if self.finale_salvata != self.stato.session_uid:
+                self.finale_salvata = self.stato.session_uid
+                self.chiudi_sessione("classifica finale")
+
+    def domande(self, stato_tasti):
+        """UDP Action 1–12 appena premute → la risposta alla domanda assegnata a quel tasto."""
+        for n in self.tasti.premuti(stato_tasti, self.imp):
+            domanda = self.imp["tasti"].get(str(n))
+            if not domanda or not self.stato.connesso(5):
+                continue
+            for slot, ing in self.ing.items():
+                try:
+                    m = D.rispondi(domanda, self.stato, ing, self.analisi, self.radio[slot].ultima_frase())
+                except Exception:
+                    log.exception("domanda %s", domanda)
+                    continue
+                if m is not None:
+                    log.info("tasto UDP Action %s: %s", n, domanda)
+                    self.radio[slot].metti([m])
 
     def chiudi_sessione(self, motivo):
         for slot, ing in self.ing.items():
@@ -172,7 +200,9 @@ class App:
             if dmg is not None:
                 auto["usura"] = round(max(dmg.tyres_wear))
             auto["pilota"] = self.stato.nomi.get(idx)
-        s.update(auto=auto, cache_pronta=self.cache_pronta,
+        s.update(tasti={"azione": self.tasti.ultima_azione, "tasto": self.tasti.ultimo_tasto},
+                 silenzio=bool(self.radio[slot].in_silenzio) if slot in self.radio else False,
+                 auto=auto, cache_pronta=self.cache_pronta,
                  frasi=self.radio[slot].detti[-6:], clienti=len(self.clienti),
                  registrazione=self.reg.nome if self.reg.f else None)
         return s
@@ -247,12 +277,34 @@ class App:
             d = {}
         testo = (d.get("testo") or "").strip()[:200] or \
             "Radio check. Ti sento forte e chiaro. Box, box questo giro."
+        grafia = (d.get("grafia") or "").strip()[:200]   # «Prova» del dizionario: così com'è scritta
         v = self.imp
         loop = asyncio.get_running_loop()
         chiave, durata = await loop.run_in_executor(
-            None, self.voce.sintetizza, testo, v["voce"], v["velocita"], v["effetto_radio"])
+            None, self.voce.sintetizza, grafia or testo, v["voce"], v["velocita"], v["effetto_radio"],
+            bool(grafia))
         return web.json_response({"url": f"/audio/{chiave}.wav?v={v['volume']}",
-                                  "testo": testo, "durata": round(durata, 2)})
+                                  "testo": grafia or testo, "durata": round(durata, 2)})
+
+    async def api_pronuncia(self, req):
+        """GET: il dizionario. POST {"parola", "grafia"} aggiunge o cambia; {"parola", "togli": true}
+        toglie (una voce cambiata torna quella di partenza); {"parola", "rimetti": true}."""
+        if req.method == "POST":
+            try:
+                d = await req.json()
+            except ValueError:
+                raise web.HTTPBadRequest(text="JSON non valido")
+            try:
+                if d.get("togli"):
+                    self.pronuncia.togli(d.get("parola", ""))
+                elif d.get("rimetti"):
+                    self.pronuncia.rimetti(d.get("parola", ""))
+                else:
+                    self.pronuncia.metti(d.get("parola", ""), d.get("grafia", ""))
+            except ValueError as e:
+                raise web.HTTPBadRequest(text=str(e))
+            asyncio.create_task(self.prepara_cache())     # le frasi fisse con la parola cambiata
+        return web.json_response({"voci": self.pronuncia.elenco()})
 
     async def audio(self, req):
         chiave = req.match_info["chiave"]
@@ -300,7 +352,7 @@ class App:
         if a is None or b is None:
             raise web.HTTPNotFound(text="giro non trovato")
         loop = asyncio.get_running_loop()
-        dati = await loop.run_in_executor(None, confronto, a, b)
+        dati = await loop.run_in_executor(None, confronto, a, b, pista)
         return web.json_response(dati)
 
     async def api_registrazioni(self, req):
@@ -309,7 +361,8 @@ class App:
     async def avvio(self, app):
         loop = asyncio.get_running_loop()
         for slot in self.ing:
-            self.radio[slot] = Radio(slot, self.voce, self.imp, self.invia_radio, self.stato.tempo)
+            self.radio[slot] = Radio(slot, self.voce, self.imp, self.invia_radio, self.stato.tempo,
+                                     silenzio=lambda: self.analisi.giro_lanciato(self.stato))
             self.radio[slot].avvia()
         me = self
 
@@ -335,6 +388,7 @@ class App:
         app.router.add_get("/api/stato", self.api_stato)
         app.router.add_route("*", "/api/impostazioni", self.api_imp)
         app.router.add_post("/api/prova", self.api_prova)
+        app.router.add_route("*", "/api/pronuncia", self.api_pronuncia)
         app.router.add_get("/api/riassunti", self.api_riassunti)
         app.router.add_post("/api/riassunti/crea", self.api_crea_riassunto)
         app.router.add_get("/api/riassunti/{id}", self.api_riassunto)
@@ -360,17 +414,19 @@ def _linea(c, passo=4.0):
     return out
 
 
-def confronto(a, b):
+def confronto(a, b, pista=None):
     curve = C.trova_curve(b["c"])
+    lunghezza = max((d for d in b["c"]["d"] if d is not None), default=0)
+    numerazione = N.assegna(curve, pista, lunghezza, b["c"])
     righe = C.confronta(a["c"], b["c"], curve)
     apici = []
     for cu in curve:
         d = b["c"]["d"]
         k = min(range(len(d)), key=lambda i: abs((d[i] or -1e9) - cu["apice"]))
-        apici.append({"curva": cu["n"], "x": b["c"]["x"][k], "z": b["c"]["z"][k]})
+        apici.append({"curva": cu["nome"], "n": cu["n"], "x": b["c"]["x"][k], "z": b["c"]["z"][k]})
     return {"a": {"meta": a["meta"], "linea": _linea(a["c"])},
             "b": {"meta": b["meta"], "linea": _linea(b["c"])},
-            "curve": righe, "apici": apici}
+            "curve": righe, "apici": apici, "numerazione": numerazione}
 
 
 def main():

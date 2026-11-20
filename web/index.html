@@ -61,6 +61,9 @@
     <h2>Che cosa dice</h2>
     <div id="categorie" class="interruttori"></div>
 
+    <label class="interruttore"><input type="checkbox" id="silenzio_qualifica"><span>Silenzio radio nel giro lanciato in qualifica (solo gli avvisi urgenti; il resto dopo il traguardo)</span></label>
+    <label class="interruttore"><input type="checkbox" id="una_curva_alla_volta"><span>In prova: una curva alla volta (la peggiore, finché migliora)</span></label>
+
     <h2>Quanto parla</h2>
     <div class="segmenti largo" id="verbosita">
       <button data-v="1">Essenziale</button>
@@ -84,6 +87,23 @@
       <input id="testo-prova" type="text" maxlength="200" placeholder="Box, box questo giro.">
       <button id="prova-voce">▶︎ Prova la voce</button>
     </div>
+    <h2>Pronuncia</h2>
+    <p class="nota">Come la voce dice nomi e parole inglesi: la parola a sinistra, come va scritta per farla dire giusta a destra (l'accento grave o acuto dice dove cade l'accento: «Monreàl»). Parole intere, maiuscole e minuscole uguali. «Prova» la fa sentire subito.</p>
+    <div class="prova pronuncia-nuova">
+      <input id="p-parola" type="text" maxlength="40" placeholder="Parola (es. Leclerc)">
+      <input id="p-grafia" type="text" maxlength="40" placeholder="Come si dice (es. Leclèr)">
+    </div>
+    <div class="riga-bottoni">
+      <button id="p-prova" class="piccolo">▶︎ Prova</button>
+      <button id="p-salva" class="piccolo">Salva</button>
+    </div>
+    <ul id="pronuncia" class="elenco piccolo voci"></ul>
+
+    <h2>Domande dai tasti</h2>
+    <p class="nota">Nel gioco, in Impostazioni → Controlli, si può assegnare un tasto del controller o del volante a «UDP Action 1…12». Quando lo premi, l'ingegnere risponde alla domanda scelta qui sotto. Dove stia esattamente il menu in F1 25 va verificato sul gioco: non lo sappiamo per certo.</p>
+    <dl class="diagnosi"><dt>Ultima UDP Action</dt><dd id="t-azione">nessuna</dd><dt>Ultimo tasto</dt><dd id="t-tasto">nessuno</dd></dl>
+    <div id="tasti" class="tasti"></div>
+
     <h2>Dopo la sessione</h2>
     <label class="cursore">Chi guida (si salva con i giri, per confrontarli)
       <input type="text" id="pilota" maxlength="24" class="campo"></label>

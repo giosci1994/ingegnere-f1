@@ -49,7 +49,15 @@ small web app for your phone. Everything runs locally in one Docker container.**
   blistering), fuel, battery and Overtake, damage, weather, gaps ahead/behind, positions, laps to
   go, lap times and records, **strategy** (undercut/overcut, where you rejoin after a stop, pit
   loss measured per track), **braking and corner exits** compared with your best lap (one short
-  call on the next straight), **2026 active aero** reminders.
+  call on the next straight that says *how* to improve: brake later, carry more speed, throttle
+  earlier…), **2026 active aero** reminders. Corners are called by their **official numbers**
+  on the tracks of the 2026 calendar; in practice the engineer can work on **one corner at a
+  time**; on a qualifying flying lap there is **radio silence** except urgent calls.
+- **Ask the engineer** with a button: assign a button to *UDP Action 1–12* in the game's
+  controls and pick the question in the page (strategy, tyres, gaps, fuel, damage, pace,
+  repeat).
+- **Pronunciation dictionary** for names and English terms, editable from the page with a
+  «Prova» (try) button.
 - **A real radio**: one phrase at a time, priorities (safety > box/penalties >
   tyres/fuel/damage/weather > gaps/positions > the rest), no overlaps, cooldowns, three verbosity
   levels. Local voice ([Piper](https://github.com/OHF-Voice/piper1-gpl)) with beeps, band-pass,
@@ -98,7 +106,9 @@ docker compose up -d --build
    radio) once — iOS only plays audio after a tap — and keep the page in the foreground. Without
    HTTPS the Screen Wake Lock API is not available, so a muted looping video keeps the screen on.
 3. Drive. In **«Avvisi»** (Calls) switch groups of calls on or off and set verbosity, volume,
-   voice and speed; the settings are shared by every phone connected.
+   voice and speed, the pronunciation dictionary and the questions for the UDP Action buttons
+   (in the game, assign a button to *UDP Action N* in the controls menu — check where exactly
+   in your version of the game); the settings are shared by every phone connected.
 4. After the session, **«Riassunti»** (Summaries) has laps, sectors, stops, errors and setup
    suggestions; **«Traiettoria»** (Racing line) compares two laps.
 
@@ -168,6 +178,7 @@ Notes for coding agents are in [`AGENTS.md`](AGENTS.md). Code, comments and UI a
 | [onnxruntime](https://github.com/microsoft/onnxruntime) | runs the Piper voice models | MIT |
 | [aiohttp](https://github.com/aio-libs/aiohttp) | web server and WebSocket | Apache-2.0 |
 | [NumPy](https://numpy.org) | radio effect | BSD-3-Clause |
+| [MultiViewer](https://multiviewer.app) circuit API | positions of the official corner numbers (`numeri_curve.py`, data from F1 live timing), downloaded once | data, credited |
 | [Piper voices](https://huggingface.co/rhasspy/piper-voices): `it_IT-riccardo-x_low` | the male voice (downloaded separately) | voice repository: MIT · trained on the [M-AILABS Speech Dataset](https://www.caito.de/2019/01/03/the-m-ailabs-speech-dataset/) (BSD-style license by M-AILABS) |
 | [Piper voices](https://huggingface.co/rhasspy/piper-voices): `it_IT-paola-medium` | the female voice (downloaded separately) | voice repository: MIT · dataset [OHF-Voice/voice-datasets](https://github.com/OHF-Voice/voice-datasets) (CC0), fine-tuned from a base model trained on [Hi-Fi TTS](https://www.openslr.org/109/) (CC BY 4.0) |
 
