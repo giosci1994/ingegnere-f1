@@ -70,6 +70,11 @@ def main():
             in_silenzio = False
             rimessi = list(tenuti)
             tenuti.clear()
+            idx_ = st.indice(slot)
+            lap_ = st.auto(P.LAP, idx_) if idx_ is not None else None
+            if lap_ is None or lap_.pit_status or lap_.driver_status == 0:   # 0.6.3: rientrato, si buttano
+                conta_silenzio["buttate ai box"] += len(rimessi)
+                rimessi = []
             for m in rimessi:
                 conta_silenzio["dopo il giro"] += 1
                 if not o.quieto:

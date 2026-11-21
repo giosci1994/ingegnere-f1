@@ -21,6 +21,7 @@ from .strategia import Strategia
 from .traccia import Biblioteca, Tracciatore, copertura
 
 MAX_IN_MEMORIA = 20
+PERDITA_MAX = 2.0   # 0.6.3: oltre, in quella curva c'è stato un incidente, non un errore di guida
 
 
 class Analisi:
@@ -311,6 +312,8 @@ class Analisi:
                 r = self.rif_misure.get(cu["n"])
                 if r and m.get("tempo") is not None and r.get("tempo") is not None:
                     delta = m["tempo"] - r["tempo"]
+                    if delta > PERDITA_MAX:   # testacoda, uscita di pista, contatto: niente consiglio
+                        continue
                     k, come = C.consiglio(m, r)
                     self.ultime_perdite[cu["nome"]] = (delta, come, cu["apice"])
                     if cap <= 0 or self.consigli_sessione < cap:
@@ -450,7 +453,7 @@ class Analisi:
             if max_ts >= 115 or max_ti >= 110:
                 if self.gomme_calde_dal is None:
                     self.gomme_calde_dal = self.ora
-                if self.ora - self.gomme_calde_dal >= 3.0 and self._puo("gomme_calde", 150, t):
+                if self.ora - self.gomme_calde_dal >= 3.0 and self._puo("gomme_calde", 240, t):
                     if max_ti >= 110:
                         i_hot, tval, dove_t = ti.index(max_ti), max_ti, "carcassa"
                     else:

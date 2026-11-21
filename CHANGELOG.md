@@ -4,6 +4,42 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.6.3] - 2026-11-22
+
+### Fixed
+- **Position calls always up to date**: the position call no longer waits 4 s before a new one
+  (`_posizioni`, `attesa=0`). Every change replaces the queued call with the right one; when the
+  position goes back to the one already said, the queued call is withdrawn and nothing is said
+  (`Messaggio.valore` / `Messaggio.da`, handled in `Radio.metti`). Before, being passed and
+  passing back within 4 s left the old, wrong call in the queue.
+- **The phone drops stale phrases**: every radio phrase now carries `chiave`, `creato`, `ttl` and,
+  for the categories of the moment (`DEL_MOMENTO`: positions, gaps, spotter, active aero, pace,
+  sectors) and priority > 1, `scade_tra` (seconds left). The phone (`web/fila.js`, used by
+  `web/app.js`) does not play a phrase more than 1 s past its expiry and, when a phrase with the
+  same key arrives, removes the old one from its queue. Urgent phrases (priority 1) are unchanged.
+- **Held phrases dropped in the pits**: phrases held during the qualifying flying-lap silence (or
+  the mute button) are thrown away when the silence ends in the pit lane, in the garage or in
+  pause (`Radio(ai_box=...)`, `App._ai_box`). Before, they were said in the garage 10–100 s late.
+- **No driving tip after an incident**: no corner tip when the loss in that corner is above 2 s
+  (`analisi.PERDITA_MAX`): that is a spin, an off or a contact, not a driving mistake.
+
+### Changed (less chatter, measured on the recorded sessions)
+- ERS attack/defence calls (`ers_attacco`, `ers_difesa`) moved to verbosity 3: at «normale» they
+  repeated the gap calls «Attacca!» / «Difendi.», which already name the car and the gap.
+- Overheating tyres (`gomme_calde`): at most once every 4 minutes (was 150 s).
+- Rivals' fastest lap (`giro_veloce_altri`) and rivals' sector gains (`settore_altro`) moved to
+  verbosity 3.
+- Position calls: 1.5 s of stable position before the call (was 2 s), ttl 6 s (was 8),
+  priority 3 (was 4) so they no longer wait behind tyre and fuel calls.
+
+### Tests
+- `prova_fase6.py`: position passed and passed back within 3 s (withdrawn), two places lost in a
+  row (only the last one queued), already-spoken call not withdrawn, `scade_tra` and the fields
+  sent to the phone; `prove/prova_fila.js` (run with node when available) for the phone queue;
+  held phrases dropped in the pits, no tip above 2 s, verbosity levels read from the code, tyre
+  overheating every 4 minutes, position debounce/ttl/priority. `prova_offline.py` drops held
+  phrases in the pits like the radio.
+
 ## [0.6.2] - 2026-11-21
 
 ### Fixed

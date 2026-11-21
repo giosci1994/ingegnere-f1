@@ -90,6 +90,8 @@ document.addEventListener("visibilitychange", () => {
 function arriva(d) {
   aggiungiFrase(d);
   if (!collegato) return;
+  Fila.timbra(d, performance.now());       // 0.6.3: scadenza e chiave (web/fila.js)
+  coda = Fila.togliChiave(coda, d);
   const soglia = d.categoria === "spotter" ? 2 : 3;   // lo spotter taglia anche la priorità 2
   if (d.interrompi && inOnda && inOnda.priorita >= soglia) {
     audio.pause();
@@ -114,6 +116,8 @@ function zittisci(secondi) {
 
 function suonaProssima() {
   if (inOnda || !coda.length || !collegato) return;
+  coda = Fila.pulisci(coda, performance.now());   // le frasi del momento scadute non si leggono
+  if (!coda.length) return;
   coda.sort((a, b) => a.priorita - b.priorita);
   const d = coda.shift();
   inOnda = d;

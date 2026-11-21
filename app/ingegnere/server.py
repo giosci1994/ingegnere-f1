@@ -133,6 +133,13 @@ class App:
         lap = self.stato.auto(P.LAP, idx)
         return lap is None or lap.driver_status == 0
 
+    def _ai_box(self):
+        """In pit lane, in garage, in pausa o fuori sessione (0.6.3: le frasi tenute si buttano)."""
+        if self._fuori_pista():
+            return True
+        lap = self.stato.auto(P.LAP, self.stato.indice())
+        return bool(lap is not None and lap.pit_status)
+
     def domande(self, stato_tasti, session_uid=None):
         """UDP Action 1–12 appena premute → la risposta alla domanda assegnata a quel tasto."""
         premuti = self.tasti.premuti(stato_tasti, self.imp)
@@ -441,7 +448,8 @@ class App:
         loop = asyncio.get_running_loop()
         for slot in self.ing:
             self.radio[slot] = Radio(slot, self.voce, self.imp, self.invia_radio, self.stato.tempo,
-                                     silenzio=lambda: self.analisi.giro_lanciato(self.stato))
+                                     silenzio=lambda: self.analisi.giro_lanciato(self.stato),
+                                     ai_box=self._ai_box)
             self.radio[slot].avvia()
         me = self
 

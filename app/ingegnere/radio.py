@@ -3,14 +3,20 @@
 - mai due frasi una sopra l'altra: la frase dopo parte quando la prima è finita (+ una pausa);
 - prima le più importanti (priorità 1 → 5), a parità la più vecchia;
 - una frase scaduta (ttl in secondi di gioco) non si dice più;
-- la stessa chiave in fila una volta sola (vince il testo più nuovo);
+- la stessa chiave in fila una volta sola (vince il testo più nuovo); se la frase nuova
+  annuncia il valore che la vecchia in fila aveva già trovato detto (`valore` == `da`: la
+  posizione tornata quella di prima), si tolgono tutte e due e non si dice niente (0.6.3);
+- al telefono ogni frase arriva con chiave, categoria, creazione, ttl e, per le categorie del
+  momento (`DEL_MOMENTO`, non urgenti), i secondi che le restano (`scade_tra`): il telefono
+  non legge una frase scaduta e, con la stessa chiave, toglie dalla sua fila quella vecchia;
 - una frase di priorità 1 che «interrompe» taglia una frase di priorità 3 o più bassa;
 - silenzio di 30 s dal tasto (`zitto()`): passano solo le priorità 1 (bandiere, safety car,
   spotter); le altre come nel silenzio della qualifica;
 - silenzio radio (giro lanciato in qualifica, `silenzio()` vero): passano solo le priorità 1–2
   e il tempo del giro appena chiuso (categoria record, detto sul traguardo);
   le altre si tengono e, finito il giro, si dicono quelle ancora valide (categorie che non
-  scadono con il momento: guida, gomme, danni, meteo, carburante, batteria, record, giri).
+  scadono con il momento: guida, gomme, danni, meteo, carburante, batteria, record, giri);
+  se il silenzio finisce in pit lane, in garage o in pausa (`ai_box()`), si buttano (0.6.3);
 """
 
 import asyncio
@@ -22,10 +28,12 @@ PAUSA = 0.6
 # quello che dopo il traguardo vale ancora (un «sei sotto il secondo, attacca» invece no)
 VALE_DOPO = {"guida", "gomme", "danni", "meteo", "carburante", "ers", "record", "giri",
              "box", "strategia", "penalita"}   # le ultime tre contano solo per il tasto del silenzio
+# quello che vale solo nel momento: se il telefono è indietro, non si legge più (0.6.3)
+DEL_MOMENTO = {"posizioni", "distacchi", "spotter", "ali", "passo", "settori"}
 
 
 class Radio:
-    def __init__(self, slot, voce, imp, invia, ora_gioco, silenzio=None):
+    def __init__(self, slot, voce, imp, invia, ora_gioco, silenzio=None, ai_box=None):
         self.slot = slot
         self.voce = voce
         self.imp = imp
@@ -38,6 +46,7 @@ class Radio:
         self.detti = []                   # ultimi messaggi detti, per la pagina
         self._task = None
         self.silenzio = silenzio or (lambda: False)   # () -> True nel giro lanciato in qualifica
+        self.ai_box = ai_box or (lambda: False)       # () -> True in pit lane, garage, pausa (0.6.3)
         self.tenuti = []                  # frasi tenute durante il silenzio radio
         self.in_silenzio = False
         self.zitto_fino = 0.0             # time.monotonic() fino a cui la radio sta zitta (tasto)
@@ -52,7 +61,13 @@ class Radio:
         for m in messaggi:
             if not self.ammesso(m):
                 continue
+            vecchio = next((x for x in self.coda if x.chiave == m.chiave), None)
             self.coda = [x for x in self.coda if x.chiave != m.chiave]
+            if vecchio is not None and m.valore is not None and vecchio.da is not None:
+                m.da = vecchio.da             # per chi ascolta vale ancora quello detto prima
+                if m.valore == m.da:
+                    log.info("ritirata %s: si torna a %s, già detto", m.chiave, m.valore)
+                    continue
             self.coda.append(m)
         if messaggi:
             self._sveglia.set()
@@ -105,6 +120,14 @@ class Radio:
                 log.info("silenzio radio: tengo %s", ", ".join(m.chiave for m in tenere))
         elif self.in_silenzio:
             self.in_silenzio = False
+            try:
+                rientrato = bool(self.ai_box())
+            except Exception:
+                log.exception("ai_box")
+                rientrato = False
+            if rientrato and self.tenuti:     # 0.6.3: finito perché si è rientrati: non servono più
+                log.info("silenzio finito ai box: butto %s", ", ".join(m.chiave for m in self.tenuti))
+                self.tenuti = []
             for m in self.tenuti:
                 m.creato = t                  # il ttl riparte da adesso, e più lungo: sono in fila
                 m.ttl = max(m.ttl, 30.0)
@@ -160,6 +183,17 @@ class Radio:
         if nato is not None:              # lo spotter: quanto ci ha messo dal pacchetto alla radio
             log.info("ritardo %s: %.3f s dal pacchetto all'invio ai telefoni", m.chiave, time.monotonic() - nato)
 
+    def scade_tra(self, m):
+        """Secondi che restano alla frase (per il telefono); None = non scade al telefono:
+        le urgenti (priorità 1) e quelle che non sono del momento."""
+        if m.priorita <= 1 or m.categoria not in DEL_MOMENTO:
+            return None
+        try:
+            resta = m.ttl - (self.ora_gioco() - m.creato)
+        except Exception:
+            return None
+        return round(max(0.0, resta), 2)
+
     async def parla(self, m, interrompi=False):
         v = self.imp
         loop = asyncio.get_running_loop()
@@ -174,6 +208,8 @@ class Radio:
             "priorita": m.priorita, "interrompi": interrompi, "durata": round(durata, 2),
             "url": f"/audio/{chiave}.wav?v={v['volume']}",
             "ora": time.strftime("%H:%M:%S"),
+            "chiave": m.chiave, "creato": round(m.creato, 1), "ttl": m.ttl,
+            "scade_tra": self.scade_tra(m),
         }
         self.detti.append({k: voce[k] for k in ("testo", "categoria", "priorita", "ora")})
         self.detti = self.detti[-30:]

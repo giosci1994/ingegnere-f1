@@ -28,6 +28,8 @@ class Messaggio:
     interrompe: bool = False   # può tagliare una frase meno importante
     creato: float = 0.0
     fisso: bool = False        # frase senza numeri: va nella cache all'avvio
+    valore: object = None      # (0.6.3) il valore che la frase annuncia (la posizione)...
+    da: object = None          # ...e quello già detto prima: se si torna lì, la frase in fila si ritira
 
     def __post_init__(self):
         if not self.priorita:
@@ -540,7 +542,7 @@ class Ingegnere:
         if p != self.pos_vista:
             self.pos_vista, self.pos_dal = p, t
             return
-        if lap.current_lap_num <= 1 or lap.pit_status or t - self.pos_dal < 2.0:
+        if lap.current_lap_num <= 1 or lap.pit_status or t - self.pos_dal < 1.5:
             return
         if self.pos_detta is None:
             self.pos_detta = p
@@ -548,7 +550,7 @@ class Ingegnere:
         if p == self.pos_detta:
             return
         guadagno = self.pos_detta - p
-        self.pos_detta = p
+        prima, self.pos_detta = self.pos_detta, p
         nome = ""
         if self.ultimo_sorpasso and t - self.ultimo_sorpasso[0] < 6:
             nome = st.nome(self.ultimo_sorpasso[2])
@@ -558,7 +560,10 @@ class Ingegnere:
         else:
             testo = (f"{nome} ti ha passato. Sei {pos(p)}." if nome and guadagno == -1
                      else f"Hai perso {'una posizione' if guadagno == -1 else f'{-guadagno} posizioni'}. Sei {pos(p)}.")
-        self._m(out, t, "posizioni", "posizione", testo, attesa=4, livello=2, ttl=8)
+        # 0.6.3: niente attesa, a ogni cambio la frase nuova sostituisce quella in fila (radio.py);
+        # se si torna alla posizione già detta, quella in fila si ritira e non si dice niente
+        self._m(out, t, "posizioni", "posizione", testo, attesa=0, livello=2, ttl=6,
+                priorita=3, valore=p, da=prima)
 
     def _distacchi_vivi(self, out, t, st, idx, lap, sta, t2):
         if lap.pit_status or lap.current_lap_num <= 1 or \
@@ -670,13 +675,13 @@ class Ingegnere:
                     if self._puo_ora("ers_attacco", 180):
                         testo = ("Hai batteria e overtake, spingi per passare." if ha_ot
                                  else "Batteria carica, spingi con l'ERS per attaccare.")
-                        out.append(Messaggio("ers", "ers_attacco", testo, livello=2, ttl=8, creato=t))
+                        out.append(Messaggio("ers", "ers_attacco", testo, livello=3, ttl=8, creato=t))
                 elif dietro is not None and 0 < dietro < 1.0 and perc >= 30 and sta.ers_deploy_mode < 2 \
                         and not dif_rec:
                     if self._puo_ora("ers_difesa", 180):
                         out.append(Messaggio("ers", "ers_difesa",
                                              "Auto vicina dietro, usa l'ERS per difendere.",
-                                             livello=2, ttl=8, fisso=True, creato=t))
+                                             livello=3, ttl=8, fisso=True, creato=t))
         if t2 is not None:
             if t2.overtake_available and not self.overtake and gara and lap.current_lap_num >= 2 \
                     and not any(m.chiave == "ers_attacco" for m in out) \
@@ -879,7 +884,7 @@ class Ingegnere:
                 ms_ = int(round(d.fastest_lap.lap_time * 1000))
                 self._m(out, t, "record", "giro_veloce_altri",
                         f"{st.nome(v_idx)} giro più veloce, {tempo_giro(ms_)}.",
-                        attesa=25, livello=2, ttl=12)
+                        attesa=25, livello=3, ttl=12)
         elif code == "PENA":
             pe = d.penalty
             if pe.vehicle_idx == idx:

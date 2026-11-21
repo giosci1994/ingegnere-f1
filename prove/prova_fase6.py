@@ -894,7 +894,156 @@ def test_simulatore_blocco2():
               f"riassunto simulatore contiene stacco, confronto e piano: keys={sorted(rj.keys())}")
 
 
+def test_posizioni_e_fila_063():
+    """0.6.3: la posizione in fila è sempre quella giusta, si ritira se si torna a quella detta;
+    al telefono chiave, creazione, ttl e scade_tra; la fila del telefono (node)."""
+    from ingegnere.radio import DEL_MOMENTO, Radio
+    from ingegnere.ingegnere import Messaggio
+    print("\n== 0.6.3 · posizioni sempre aggiornate e fila del telefono ==")
+    imp = Impostazioni(os.path.join(tempfile.mkdtemp(), "imp.json"))
+    ora = [0.0]
+    radio = Radio(1, None, imp, lambda s, d: None, lambda: ora[0])
+    ing = Ingegnere(1)
+    st = types.SimpleNamespace(nome=lambda i: "LECLERC")
+
+    def giro(t, p):
+        lap = types.SimpleNamespace(car_position=p, current_lap_num=3, pit_status=0)
+        out = []
+        ing._posizioni(out, t, st, lap, 0)
+        radio.metti(out)
+        return out
+
+    def in_fila():
+        return [(m.chiave, m.testo) for m in radio.coda]
+
+    giro(0.0, 5); giro(2.5, 5)                      # posizione detta: P 5
+    giro(3.0, 6); out = giro(5.1, 6)                # passato: P 6 in fila
+    controlla(len(out) == 1 and "P 6" in out[0].testo and len(radio.coda) == 1,
+              f"superato: «P 6» in fila: {in_fila()}")
+    giro(6.0, 5); out = giro(8.1, 5)                # ripassa dopo 3 s (prima: bloccato dall'attesa di 4 s)
+    controlla(len(out) == 1, "ripassa dopo 3 s: la frase nuova c'è (prima l'attesa di 4 s la bloccava)")
+    controlla(not radio.coda, f"tornato alla posizione già detta: la fila si svuota, niente da dire: {in_fila()}")
+    giro(9.0, 6); giro(11.1, 6)                     # di nuovo passato: P 6
+    giro(12.0, 7); giro(14.1, 7)                    # e ancora: P 7 sostituisce P 6
+    controlla(len(radio.coda) == 1 and "P 7" in radio.coda[0].testo,
+              f"due posizioni perse di fila: in fila solo l'ultima, «P 7»: {in_fila()}")
+    giro(15.0, 5); giro(17.1, 5)                    # recupera tutte e due
+    controlla(not radio.coda, f"recupera fino alla posizione detta (P 5): niente in fila: {in_fila()}")
+    giro(18.0, 6); giro(20.1, 6)
+    radio.coda.pop(0)                               # «P 6» detta davvero
+    giro(21.0, 5); giro(23.1, 5)
+    controlla(len(radio.coda) == 1 and "P 5" in radio.coda[0].testo,
+              f"se «P 6» era già stata detta, «P 5» si dice: {in_fila()}")
+    # un'altra chiave non viene toccata dalla regola del valore
+    radio.coda.clear()
+    radio.metti([Messaggio("gomme", "usura", "Usura 60.", creato=0)])
+    radio.metti([Messaggio("gomme", "usura", "Usura 61.", creato=1)])
+    controlla(len(radio.coda) == 1 and radio.coda[0].testo == "Usura 61.", "altre chiavi: vince la più nuova, come prima")
+    # quello che il telefono riceve
+    ora[0] = 13.0
+    mp = Messaggio("posizioni", "posizione", "Sei P 4.", ttl=8, creato=10.0)
+    controlla(radio.scade_tra(mp) == 5.0, f"scade_tra posizione: ttl 8 creata 3 s fa -> 5: {radio.scade_tra(mp)}")
+    controlla(radio.scade_tra(Messaggio("spotter", "spotter", "Macchina a sinistra.", creato=12.0)) is None,
+              "spotter (priorità 1): nessuna scadenza al telefono")
+    controlla(radio.scade_tra(Messaggio("gomme", "usura", "Usura 61.", creato=0)) is None,
+              "gomme (non del momento): nessuna scadenza al telefono")
+    controlla({"posizioni", "distacchi", "spotter"} <= DEL_MOMENTO, f"DEL_MOMENTO: {sorted(DEL_MOMENTO)}")
+    mandati = []
+
+    async def invia(slot, d):
+        mandati.append(d)
+    voce = types.SimpleNamespace(sintetizza=lambda *a: ("abc", 1.0))
+    r2 = Radio(1, voce, imp, invia, lambda: 13.0)
+    asyncio.run(r2.parla(mp))
+    d = mandati[0] if mandati else {}
+    controlla(d.get("chiave") == "posizione" and d.get("creato") == 10.0 and d.get("ttl") == 8
+              and d.get("scade_tra") == 5.0 and d.get("categoria") == "posizioni",
+              f"al telefono: chiave, categoria, creato, ttl, scade_tra: { {k: d.get(k) for k in ('chiave', 'categoria', 'creato', 'ttl', 'scade_tra')} }")
+    # la fila del telefono (web/fila.js) con node, se c'è (nell'immagine non c'è)
+    import shutil
+    js = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prova_fila.js")
+    if shutil.which("node"):
+        r = subprocess.run(["node", js], capture_output=True, text=True)
+        print(r.stdout.rstrip())
+        controlla(r.returncode == 0, "fila del telefono (node prove/prova_fila.js)")
+    else:
+        print("  --  node non c'è: la fila del telefono si prova con  node prove/prova_fila.js")
+
+
+def test_proposte_063():
+    """0.6.3, le 5 proposte approvate: tenute buttate ai box, niente consiglio oltre 2 s,
+    ERS a livello 3, gomme calde ogni 4 minuti, giro veloce altrui e settori altrui a livello 3,
+    posizioni con debounce 1,5 s, ttl 6 s e priorità 3."""
+    from ingegnere.radio import Radio
+    from ingegnere.ingegnere import Messaggio
+    print("\n== 0.6.3 · le 5 proposte ==")
+    imp = Impostazioni(os.path.join(tempfile.mkdtemp(), "imp.json"))
+    # 1. silenzio della qualifica finito ai box: le tenute si buttano; finito in pista: si dicono
+    for ai_box, attese in ((True, 0), (False, 1)):
+        zitto = [True]
+        r = Radio(1, None, imp, lambda s, d: None, lambda: 50.0, silenzio=lambda: zitto[0],
+                  ai_box=lambda: ai_box)
+        r.metti([Messaggio("gomme", "gomme_calde", "Gomme surriscaldate.", creato=40.0)])
+        r._silenzio(45.0)
+        controlla(len(r.tenuti) == 1 and not r.coda, "giro lanciato: gomme calde tenuta")
+        zitto[0] = False
+        r._silenzio(50.0)
+        controlla(len(r.coda) == attese and not r.tenuti,
+                  f"silenzio finito {'ai box: tenuta buttata' if ai_box else 'in pista: tenuta rimessa in fila'} "
+                  f"(in fila {len(r.coda)})")
+    # 2. consiglio di guida: con 1 s di perdita sì, con più di 2 s (incidente) no
+    tmp = tempfile.mkdtemp()
+    st, ses, lap, tel, sta, dmg, _ = _stato_base()
+    an = Analisi(imp, Biblioteca(os.path.join(tmp, "giri")), Piste(os.path.join(tmp, "piste.json")))
+    rif_c = _traccia_finta()
+    an._imposta_rif({"pista": 6, "tempo_ms": 60000}, rif_c, 4000)
+    for fattore, attesi in ((1.12, 1), (1.5, 0)):
+        lento = dict(rif_c)
+        lento["t"] = [round(x * fattore, 3) for x in rif_c["t"]]
+        lento["br"] = [0.9 if 700 <= d < 900 else 0.0 for d in lento["d"]]
+        an.trac.giro = types.SimpleNamespace(c=lento, numero=2, invalido=False, box=False, sc=False)
+        an.valutate, an.dette_giro, an.ultime_perdite = set(), 0, {}
+        an.ultimo.clear()
+        lap.cars[0].current_lap_num, lap.cars[0].lap_distance = 2, 1300.0
+        out = []
+        an._guida(out, 200.0, st, ses, lap.cars[0])
+        controlla(len(out) == attesi, f"guida, giro {fattore}x più lento: {len(out)} consigli (attesi {attesi})")
+    # 3–4. livelli letti dal codice (gli stessi che mostra la pagina)
+    liv = {}
+    for chiave, lv, _ in L.trova():
+        liv.setdefault(chiave, set()).add(lv)
+    for chiave in ("ers:ers_attacco", "ers:ers_difesa", "record:giro_veloce_altri", "passo:settore_altro"):
+        controlla(liv.get(chiave) == {3}, f"{chiave} a livello 3: {liv.get(chiave)}")
+    # 4. gomme calde: dopo 3 minuti no, dopo 4 sì
+    an2 = Analisi(imp, Biblioteca(os.path.join(tmp, "giri2")), Piste(os.path.join(tmp, "piste2.json")))
+    an2.curve = [{"n": 1, "nome": "4", "apice": 900.0, "inizio": 700.0, "fine": 1100.0}]
+    lap.cars[0].lap_distance = 900.0
+    tel.cars[0].tyres_surface_temperature[:] = [96, 97, 118, 102]
+    dette = []
+    for t_ in (100.0, 104.0, 284.0, 288.0, 344.0, 348.0):
+        an2.ora = t_
+        out = []
+        an2._gomme_calde(out, t_, st, lap.cars[0], 0)
+        dette += [t_ for m in out if m.chiave == "gomme_calde"]
+    controlla(dette == [104.0, 344.0], f"gomme calde ogni 4 minuti: dette a {dette} (attese 104 e 344)")
+    # 5. posizioni: debounce 1,5 s, ttl 6, priorità 3
+    ing = Ingegnere(1)
+    st5 = types.SimpleNamespace(nome=lambda i: "LECLERC")
+
+    def giro(t, p):
+        out = []
+        ing._posizioni(out, t, st5, types.SimpleNamespace(car_position=p, current_lap_num=3, pit_status=0), 0)
+        return out
+    giro(0.0, 5); giro(1.6, 5); giro(2.0, 6)
+    controlla(not giro(3.4, 6), "posizione: dopo 1,4 s ancora niente")
+    out = giro(3.6, 6)
+    controlla(len(out) == 1 and out[0].ttl == 6 and out[0].priorita == 3,
+              f"posizione dopo 1,6 s: ttl 6, priorità 3: {[(m.ttl, m.priorita) for m in out]}")
+
+
 def main():
+    test_posizioni_e_fila_063()
+    test_proposte_063()
     test_tetto_consigli()
     test_ftlp_e_soste_altri()
     test_delta_e_cruscotto()

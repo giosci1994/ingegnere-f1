@@ -363,7 +363,7 @@ def settori_avversari(an, out, t, st, ses, lap, idx, giro_finito):
                 an._puo("settore_altro", 180, t)
                 an._puo(f"settore_altro_{j_av}", 240, t)
                 out.append(Messaggio("passo", "settore_altro", _frase_settore(st, j_av, k, diff),
-                                     livello=2, ttl=12, creato=t))
+                                     livello=3, ttl=12, creato=t))
                 return
 
     if giro_finito and lap.current_lap_num >= 3 and not any(m.chiave == "passo" for m in out):
@@ -387,7 +387,7 @@ def settori_avversari(an, out, t, st, ses, lap, idx, giro_finito):
             an._puo("settore_altro", 180, t)
             an._puo(f"settore_altro_{j}", 240, t)
             out.append(Messaggio("passo", "settore_altro", _frase_settore(st, j, k, diff),
-                                 livello=2, ttl=12, creato=t))
+                                 livello=3, ttl=12, creato=t))
 
 
 # ---------- tempo obiettivo (Target Lap) ----------
