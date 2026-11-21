@@ -47,6 +47,7 @@ PREDEFINITE = {
     "max_registrazioni_mb": 2000,
     "silenzio_qualifica": True,   # nel giro lanciato in qualifica solo gli avvisi urgenti (priorità 1–2)
     "una_curva_alla_volta": True, # in prova: i consigli su una curva sola (la peggiore) finché migliora
+    "max_consigli_guida": 12,     # tetto consigli di guida per sessione (0 = illimitati)
     "tasti": {},                  # UDP Action 1–12 -> domanda (domande.py); riempito sotto
 }
 
@@ -107,6 +108,8 @@ class Impostazioni:
                     v = min(1.4, max(0.7, v))
                 elif k == "effetto_radio":
                     v = min(3, max(0, v))
+                elif k == "max_consigli_guida":
+                    v = min(100, max(0, v))
                 elif k == "pilota":
                     v = " ".join(v.split())[:24] or "io"
                 self.valori[k] = v
@@ -122,6 +125,9 @@ class Impostazioni:
 
     def __getitem__(self, k):
         return self.valori[k]
+
+    def get(self, k, default=None):
+        return self.valori.get(k, default)
 
     def acceso(self, categoria):
         return self.valori["avvisi"].get(categoria, categoria not in SPENTE)

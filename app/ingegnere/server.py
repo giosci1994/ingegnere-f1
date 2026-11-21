@@ -14,6 +14,7 @@ from aiohttp import web, WSMsgType
 from . import domande as D
 from . import numeri_curve as N
 from . import pacchetti as P
+from . import pregara as PG
 from . import riassunto as R
 from .impostazioni import Impostazioni
 from .analisi import Analisi
@@ -111,6 +112,7 @@ class App:
                 return
             for slot, ing in self.ing.items():
                 self.radio[slot].metti(ing.evento(self.stato, pk))
+            self.analisi.evento(self.stato, pk)
             if code == "SEND":
                 self.chiudi_sessione("fine sessione")
         elif pk.id == P.FINAL and pk.dati is not None:
@@ -201,6 +203,8 @@ class App:
             lap = self.stato.auto(P.LAP, idx)
             sta = self.stato.auto(P.STATUS, idx)
             dmg = self.stato.auto(P.DAMAGE, idx)
+            tel = self.stato.auto(P.TELEMETRY, idx)
+            t2 = self.stato.auto(P.TELEMETRY2, idx) if self.stato.formato == 2026 else None
             ses = self.stato.sessione()
             if lap is not None:
                 auto.update(posizione=lap.car_position, giro=lap.current_lap_num,
@@ -208,14 +212,37 @@ class App:
                             davanti=self.stato.distacco_davanti(idx),
                             dietro=self.stato.distacco_dietro(idx)[0],
                             box=bool(lap.pit_status))
+            auto["delta"] = self.analisi.delta_live(self.stato)
             if sta is not None:
+                ers_modi = {0: "Nessuno", 1: "Medio", 2: "Hotlap", 3: "Overtake"}
                 auto.update(gomma=P.GOMME_VISIVE.get(sta.visual_tyre_compound),
                             eta_gomme=sta.tyres_age_laps,
                             carburante=round(sta.fuel_remaining_laps, 1),
-                            batteria=round(100 * sta.ers_store_energy / 4e6))
+                            batteria=round(100 * sta.ers_store_energy / 4e6),
+                            ers_modo=ers_modi.get(sta.ers_deploy_mode, str(sta.ers_deploy_mode)))
+            if t2 is not None:
+                auto["overtake_disp"] = bool(t2.overtake_available)
+                auto["overtake_attivo"] = bool(t2.overtake_active)
             if dmg is not None:
                 auto["usura"] = round(max(dmg.tyres_wear))
+            if dmg is not None or tel is not None:
+                auto["ruote"] = [
+                    {
+                        "eti": nome,
+                        "usura": round(dmg.tyres_wear[k]) if dmg is not None else None,
+                        "blister": int(dmg.tyre_blisters[k]) if dmg is not None else 0,
+                        "ts": int(tel.tyres_surface_temperature[k]) if tel is not None else None,
+                        "ti": int(tel.tyres_inner_temperature[k]) if tel is not None else None,
+                    }
+                    for k, nome in ((2, "AS"), (3, "AD"), (0, "PS"), (1, "PD"))
+                ]
             auto["pilota"] = self.stato.nomi.get(idx)
+            if self.stato.in_gara() and getattr(self.analisi, "piani_gara", None):
+                att = self.analisi.piano_attivo
+                p_att = (self.analisi.piani_gara.get("piani") or {}).get(att) or {}
+                auto["piano"] = {"attivo": att, "stile": p_att.get("stile", ""),
+                                 "target_giro": p_att.get("target_giro")}
+            s["pista_id"] = ses.track_id if ses is not None else None
         s.update(tasti={"azione": self.tasti.ultima_azione, "tasto": self.tasti.ultimo_tasto},
                  silenzio=bool(self.radio[slot].in_silenzio) if slot in self.radio else False,
                  zitta=round(max(0.0, self.radio[slot].zitto_fino - time.monotonic())) if slot in self.radio else 0,
@@ -369,6 +396,29 @@ class App:
     async def api_registrazioni(self, req):
         return web.json_response(self.reg.elenco())
 
+    def _sessione_live_pregara(self):
+        ses = self.stato.sessione()
+        if ses is None or not self.stato.connesso(10):
+            return None
+        return {"pista_id": ses.track_id, "piani": getattr(self.analisi, "piani_gara", None)}
+
+    async def api_pregara_indice(self, req):
+        live = self._sessione_live_pregara()
+        piste = PG.piste_disponibili(self.bib, self.analisi.strategia.piste, self.cartella_riassunti, live)
+        corrente = live["pista_id"] if live else (piste[0]["pista"] if piste else None)
+        dati = None
+        if corrente is not None:
+            dati = PG.dati_pregara(corrente, self.bib, self.analisi.strategia.piste,
+                                   self.cartella_riassunti, pilota=self.imp["pilota"], sessione_live=live)
+        return web.json_response({"piste": piste, "corrente": corrente, "dati": dati})
+
+    async def api_pregara(self, req):
+        pista = _pista(req)
+        live = self._sessione_live_pregara()
+        dati = PG.dati_pregara(pista, self.bib, self.analisi.strategia.piste,
+                               self.cartella_riassunti, pilota=self.imp["pilota"], sessione_live=live)
+        return web.json_response(dati)
+
     async def avvio(self, app):
         loop = asyncio.get_running_loop()
         for slot in self.ing:
@@ -407,6 +457,8 @@ class App:
         app.router.add_get("/api/piste", self.api_piste)
         app.router.add_get("/api/giri/{pista}", self.api_giri)
         app.router.add_get("/api/confronto/{pista}", self.api_confronto)
+        app.router.add_get("/api/pregara", self.api_pregara_indice)
+        app.router.add_get("/api/pregara/{pista}", self.api_pregara)
         app.router.add_get("/audio/{chiave}.wav", self.audio)
         app.router.add_static("/static/", WEB)
         app.on_startup.append(self.avvio)

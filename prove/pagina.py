@@ -74,12 +74,26 @@ def prova(base, url, cartella, larghezza, altezza, problemi, nome):
             return 1;""")
         time.sleep(2)
         apri("radio", 0.5)
+        n_ruote = js("return document.querySelectorAll('#ruote .ruota').length;")
+        if not js("return Boolean(document.getElementById('delta-box') && document.getElementById('ers-box') && document.getElementById('piano-box'));") or n_ruote != 4:
+            problemi.append(f"{nome}: cruscotto delta/ERS/piano/4 ruote incompleto (ruote={n_ruote})")
         foto("radio")
+        apri("pregara", 1.5)
+        n_piani = js("return document.querySelectorAll('#pg-piani .piano-card').length;")
+        n_fren = js("return document.querySelectorAll('#pg-frenate tbody tr').length;")
+        sosp = js("return /sospension|altezz/i.test(document.querySelector('#pg-setup')?.innerText.replace(/Niente consigli su sospensioni e altezze[^\\n]*/i, '') || '');")
+        if n_piani != 3:
+            problemi.append(f"{nome}: pre-gara ha {n_piani} piani invece di 3")
+        if not n_fren:
+            problemi.append(f"{nome}: pre-gara mappa frenate vuota")
+        if sosp:
+            problemi.append(f"{nome}: pre-gara setup consiglia sospensioni/altezze")
+        foto("pregara")
         apri("avvisi")
         n_cat = js("return document.querySelectorAll('#categorie input').length;")
         n_voci = js("return document.querySelectorAll('#pronuncia li').length;")
         n_tasti = js("return document.querySelectorAll('#tasti select').length;")
-        nuovi = js("return ['silenzio_qualifica', 'una_curva_alla_volta'].filter(i => document.getElementById(i)).length;")
+        nuovi = js("return ['silenzio_qualifica', 'una_curva_alla_volta', 'max_consigli_guida'].filter(i => document.getElementById(i)).length;")
         scelta = js("return document.body.innerText.includes('Giocatore 2');")
         n_livelli = js("return Array.from(document.querySelectorAll('#livelli .livello')).filter(d => d.textContent.length > 30).length;")
         if n_livelli != 3:
@@ -91,8 +105,8 @@ def prova(base, url, cartella, larghezza, altezza, problemi, nome):
             problemi.append(f"{nome}: dizionario di pronuncia con {n_voci} voci")
         if n_tasti != 12:
             problemi.append(f"{nome}: tasti UDP Action {n_tasti} invece di 12")
-        if nuovi != 2:
-            problemi.append(f"{nome}: mancano gli interruttori del silenzio radio o della curva alla volta")
+        if nuovi != 3:
+            problemi.append(f"{nome}: mancano gli interruttori del silenzio radio, curva alla volta o tetto consigli")
         if scelta:
             problemi.append(f"{nome}: c'è ancora la scelta del giocatore")
         apri("gare", 1.5)
@@ -122,6 +136,7 @@ def prova(base, url, cartella, larghezza, altezza, problemi, nome):
         if errori:
             problemi.append(f"{nome}: errori JavaScript: {errori}")
         return (f"{nome}: interruttori {n_cat}, voci di pronuncia {n_voci}, tasti {n_tasti}, "
+                f"piani pre-gara {n_piani}, curve frenate {n_fren}, "
                 f"schede del riassunto {len(schede)}, linee {linee}, bottoni curve {bottoni}, errori JS {len(errori)}")
     finally:
         chiama(base, "DELETE", s)

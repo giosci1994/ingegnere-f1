@@ -44,3 +44,6 @@ jobs:
 
       - name: Phase 5 (radio mute, «dove perdo», rivals' tyre wear, tyre sets, simulator races)
         run: docker run --rm -v "$PWD/prove:/prove:ro" ingegnere-f1:ci python /prove/prova_fase5.py
+
+      - name: Phase 6 (telemetry dashboard, coaching, Piano A/B/C, teammate, pre-race)
+        run: docker run --rm -v "$PWD/prove:/prove:ro" ingegnere-f1:ci python /prove/prova_fase6.py

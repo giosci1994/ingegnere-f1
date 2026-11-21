@@ -7,7 +7,7 @@
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 
-let ws = null, wsAttesa = 1000, collegato = false;
+let ws = null, wsAttesa = 1000, collegato = false, ultimoPistaLive = null;
 let coda = [], inOnda = null, impostazioni = null, wakeLock = null;
 const audio = $("#radio");
 const sveglia = $("#sveglia");
@@ -16,6 +16,7 @@ const sveglia = $("#sveglia");
 $$("nav button").forEach((b) => b.addEventListener("click", () => {
   $$("nav button").forEach((x) => x.classList.toggle("attivo", x === b));
   $$(".vista").forEach((v) => v.classList.toggle("attiva", v.id === "v-" + b.dataset.vista));
+  if (b.dataset.vista === "pregara") caricaPregara();
   if (b.dataset.vista === "gare") caricaGare();
   if (b.dataset.vista === "info") caricaRegistrazioni();
   if (b.dataset.vista === "traiettoria") caricaPiste();
@@ -146,6 +147,7 @@ function aggiungiFrase(d) {
 const fmt = (x, suff = "") => (x === null || x === undefined ? "–" : x + suff);
 function mostraStato(s) {
   const p = $("#ps5");
+  ultimoPistaLive = s.connesso && s.pista_id != null ? s.pista_id : null;
   if (s.connesso) {
     p.textContent = `PS5 collegata · ${s.sessione || ""}${s.pista ? " · " + s.pista : ""}${s.in_pausa ? " · in pausa" : ""}${s.silenzio ? " · silenzio radio" : ""}${s.zitta ? ` · radio zitta ${s.zitta} s` : ""}`;
     p.className = "ps5 acceso";
@@ -162,6 +164,58 @@ function mostraStato(s) {
   $("#c-usura").textContent = fmt(a.usura, "%");
   $("#c-benzina").textContent = a.carburante != null ? (a.carburante > 0 ? "+" : "") + a.carburante : "–";
   $("#c-batteria").textContent = fmt(a.batteria, "%");
+  const deltaEl = $("#c-delta"), deltaFill = $("#delta-fill");
+  if (a.delta != null) {
+    const d = a.delta;
+    const segno = d > 0 ? "+" : (d < 0 ? "−" : "");
+    deltaEl.textContent = `${segno}${Math.abs(d).toFixed(2)} s`;
+    deltaEl.className = d < 0 ? "veloce" : (d > 0 ? "lento" : "");
+    const w = Math.min(50, (Math.abs(d) / 2.0) * 50);
+    deltaFill.style.width = w.toFixed(1) + "%";
+    deltaFill.style.left = d <= 0 ? "50%" : (50 - w).toFixed(1) + "%";
+    deltaFill.className = "delta-fill " + (d < 0 ? "veloce" : (d > 0 ? "lento" : ""));
+  } else {
+    deltaEl.textContent = "–"; deltaEl.className = "";
+    deltaFill.style.width = "0"; deltaFill.className = "delta-fill";
+  }
+  const bat = a.batteria != null ? Math.max(0, Math.min(100, a.batteria)) : 0;
+  $("#ers-fill").style.width = a.batteria != null ? bat + "%" : "0";
+  $("#ers-fill").className = "ers-fill" + (a.overtake_attivo ? " attivo" : (bat < 15 && a.batteria != null ? " basso" : ""));
+  const ersParti = [];
+  if (a.batteria != null) ersParti.push(a.batteria + "%");
+  if (a.ers_modo) ersParti.push(a.ers_modo);
+  if (a.overtake_attivo) ersParti.push("OVERTAKE ATTIVO");
+  else if (a.overtake_disp) ersParti.push("Overtake pronto");
+  const ersInfo = $("#c-ers-info");
+  ersInfo.textContent = ersParti.length ? ersParti.join(" · ") : "–";
+  ersInfo.className = "ers-badge" + (a.overtake_attivo ? " attivo" : (a.overtake_disp ? " pronto" : ""));
+  const pianoBox = $("#piano-box");
+  if (pianoBox) {
+    if (a.piano && a.piano.attivo) {
+      pianoBox.hidden = false;
+      $("#c-piano-attivo").textContent = "Piano " + a.piano.attivo;
+      $("#c-piano-dettaglio").textContent = `${a.piano.stile || ""}${a.piano.target_giro ? " · target box giro " + a.piano.target_giro : ""}`;
+    } else {
+      pianoBox.hidden = true;
+    }
+  }
+  for (let k = 0; k < 4; k++) {
+    const r = a.ruote && a.ruote[k];
+    const card = $(`#ruote .ruota[data-r="${k}"]`);
+    if (!card) continue;
+    const uEl = card.querySelector(".r-usura"), tEl = card.querySelector(".r-temp"), bEl = card.querySelector(".r-blister");
+    if (!r) {
+      uEl.textContent = "–"; uEl.className = "r-usura";
+      tEl.textContent = "–"; tEl.className = "r-temp";
+      bEl.textContent = "";
+      continue;
+    }
+    uEl.textContent = r.usura != null ? r.usura + "%" : "–";
+    uEl.className = "r-usura" + (r.usura >= 70 ? " critico" : (r.usura >= 45 ? " avviso" : ""));
+    tEl.textContent = (r.ts != null || r.ti != null) ? `S ${r.ts ?? "–"}° · I ${r.ti ?? "–"}°` : "–";
+    tEl.className = "r-temp" + ((r.ti >= 110 || r.ts >= 115) ? " caldo" : (r.ti != null && r.ti > 0 && r.ti < 70 ? " freddo" : ""));
+    bEl.textContent = r.blister > 0 ? `Blister ${r.blister}%` : "";
+  }
   if (!$("#frasi li:not(.vuoto)") && s.frasi && s.frasi.length) {
     s.frasi.forEach((f) => aggiungiFrase(f));
   }
@@ -221,6 +275,9 @@ function disegnaImpostazioni() {
   $("#assetto").checked = v.assetto;
   $("#silenzio_qualifica").checked = v.silenzio_qualifica;
   $("#una_curva_alla_volta").checked = v.una_curva_alla_volta;
+  const maxC = v.max_consigli_guida ?? 12;
+  $("#max_consigli_guida").value = maxC;
+  $("#o-max_consigli").textContent = maxC ? maxC : "illimitati";
   disegnaTasti(v.tasti || {});
   if (document.activeElement !== $("#pilota")) $("#pilota").value = v.pilota;
 }
@@ -248,6 +305,8 @@ $("#assetto").addEventListener("change", (e) => salva({ assetto: e.target.checke
 $("#pilota").addEventListener("change", (e) => salva({ pilota: e.target.value }));
 $("#silenzio_qualifica").addEventListener("change", (e) => salva({ silenzio_qualifica: e.target.checked }));
 $("#una_curva_alla_volta").addEventListener("change", (e) => salva({ una_curva_alla_volta: e.target.checked }));
+$("#max_consigli_guida").addEventListener("input", (e) => ($("#o-max_consigli").textContent = +e.target.value ? e.target.value : "illimitati"));
+$("#max_consigli_guida").addEventListener("change", (e) => salva({ max_consigli_guida: +e.target.value }));
 
 // ---------- che cosa aggiunge ogni livello (letto dal codice dal server: livelli.py) ----------
 function disegnaLivelli(attivo) {
@@ -485,8 +544,44 @@ function sezioniFase2(r, box) {
   if (r.strategia) {
     const s = scheda("Strategia", box);
     const st = r.strategia;
+    if (st.piano_attivo) riga(s, `Piano attivo: Piano ${st.piano_attivo}.`);
     riga(s, `Tempo perso al box: ${st.perdita_box_s} s (${st.misurata ? "misurato su questa pista" : "stima generica, ancora nessuna misura"}).`);
     if (st.degrado_s_per_giro != null) riga(s, `Le tue gomme perdevano circa ${st.degrado_s_per_giro.toFixed(2)} s a giro.`);
+    if (st.target_lap) riga(s, `Tempo obiettivo prima della sosta: ${st.target_lap} (per arrivare al giro ${st.target_lap_giro}).`);
+  }
+  if (r.confronto_riferimento) {
+    const cr = r.confronto_riferimento;
+    const s = scheda(cr.tipo === "compagno" ? "Confronto con il compagno" : "Confronto con riferimento", box);
+    riga(s, `Riferimento: ${cr.pilota} · giro ${cr.giro} (${cr.tempo}).`);
+    if (cr.peggiori && cr.peggiori.length)
+      riga(s, "Dove perdi di più: " + cr.peggiori.map((c) => `${String(c.curva).includes(" e ") ? "curve" : "curva"} ${c.curva} (+${c.delta_s.toFixed(2)} s)`).join(" · "));
+    tabella(s, ["Curva", "Delta s", "Frenata m", "V min km/h", "Gas m", "Nota"],
+      (cr.curve || []).map((c) => [
+        c.curva,
+        c.delta_s == null ? null : (c.delta_s > 0 ? "+" : "") + c.delta_s.toFixed(2),
+        c.frenata_diff_m == null ? null : (c.frenata_diff_m > 0 ? "+" : "") + c.frenata_diff_m,
+        c.vmin_diff_kmh == null ? null : (c.vmin_diff_kmh > 0 ? "+" : "") + c.vmin_diff_kmh,
+        c.gas_diff_m == null ? null : (c.gas_diff_m > 0 ? "+" : "") + c.gas_diff_m,
+        c.nota,
+      ]));
+  }
+  if (r.stacco_partenza) {
+    const sp = r.stacco_partenza;
+    const s = scheda("Stacco partenza", box);
+    const num = document.createElement("div");
+    num.className = "numeri";
+    [
+      ["Reazione", sp.tempo_reazione_s != null ? sp.tempo_reazione_s.toFixed(2) + " s" : "–"],
+      ["Gas lancio", sp.gas_partenza_percento != null ? sp.gas_partenza_percento + "%" : "–"],
+      ["Frizione", sp.frizione_usata ? (sp.rilascio_frizione_s != null ? sp.rilascio_frizione_s.toFixed(2) + " s" : "sì") : "no"],
+      ["Pattin. max", sp.pattinamento_max != null ? sp.pattinamento_max.toFixed(2) : "–"],
+      ["0–100 km/h", sp.tempo_0_100_s != null ? sp.tempo_0_100_s.toFixed(2) + " s" : "–"],
+      ["Posizioni", sp.posizioni_guadagnate != null ? (sp.posizioni_guadagnate > 0 ? "+" + sp.posizioni_guadagnate : String(sp.posizioni_guadagnate)) : "–"],
+    ].forEach(([k, v]) => { const d = document.createElement("div"); d.innerHTML = "<b></b><span></span>"; d.querySelector("b").textContent = v; d.querySelector("span").textContent = k; num.append(d); });
+    s.append(num);
+    if (sp.consiglio) {
+      const c = document.createElement("div"); c.className = "consiglio"; c.textContent = sp.consiglio; s.append(c);
+    }
   }
   if (r.ali) {
     const s = scheda("Ali mobili 2026", box);
@@ -584,6 +679,156 @@ function disegna() {
 $("#t-pista").addEventListener("change", caricaGiri);
 $("#t-a").addEventListener("change", confronta);
 $("#t-b").addEventListener("change", confronta);
+
+// ---------- pre-gara ----------
+async function caricaPregara(forzaPista) {
+  const res = await (await fetch("/api/pregara")).json();
+  const sel = $("#pg-pista");
+  const prima = forzaPista ?? (sel.value || null);
+  sel.innerHTML = "";
+  const piste = res.piste || [];
+  if (!piste.length) {
+    $("#pg-vuoto").hidden = false;
+    $("#pg-contenuto").hidden = true;
+    return;
+  }
+  $("#pg-vuoto").hidden = true;
+  $("#pg-contenuto").hidden = false;
+  piste.forEach((p) => {
+    const o = document.createElement("option");
+    o.value = p.pista;
+    o.textContent = p.giri ? `${p.nome} (${p.giri} giri)` : p.nome;
+    sel.append(o);
+  });
+  let scelta = null;
+  if (prima != null && piste.some((p) => String(p.pista) === String(prima))) scelta = String(prima);
+  else if (ultimoPistaLive != null && piste.some((p) => String(p.pista) === String(ultimoPistaLive))) scelta = String(ultimoPistaLive);
+  else if (res.corrente != null && piste.some((p) => String(p.pista) === String(res.corrente))) scelta = String(res.corrente);
+  else scelta = String(piste[0].pista);
+  sel.value = scelta;
+  if (res.dati && String(res.corrente) === scelta) disegnaPregara(res.dati);
+  else await caricaDettaglioPregara(scelta);
+}
+
+async function caricaDettaglioPregara(pista) {
+  if (!pista) return;
+  const r = await fetch("/api/pregara/" + encodeURIComponent(pista));
+  if (!r.ok) return;
+  disegnaPregara(await r.json());
+}
+
+function disegnaPregara(d) {
+  // 1. Piano di gara A / B / C
+  const boxPiani = $("#pg-piani");
+  boxPiani.innerHTML = "<h3>Piano di gara pre-partenza</h3>";
+  const piani = d.piani || {};
+  const fonteMap = { sessione: "in sessione", storico: "da storico gare", stima: "stima indicativa" };
+  riga(boxPiani, `Pista: ${d.nome} · Fonte: ${fonteMap[piani.fonte] || piani.fonte || "stima"} · Perdita box: ${t(piani.perdita_box_s)} s (${piani.misurata ? "misurata" : "stima"}).`).className = "nota";
+  const grigliaP = document.createElement("div");
+  grigliaP.className = "piani-riga";
+  ["A", "B", "C"].forEach((cod) => {
+    const p = (piani.piani || {})[cod];
+    if (!p) return;
+    const attivo = piani.attivo === cod;
+    const card = document.createElement("div");
+    card.className = "piano-card" + (attivo ? " attivo" : "");
+    const testa = document.createElement("div");
+    testa.className = "piano-card-testa";
+    const h4 = document.createElement("b");
+    h4.textContent = `${p.nome} · ${p.stile}`;
+    testa.append(h4);
+    if (attivo) {
+      const badge = document.createElement("span");
+      badge.className = "piano-badge";
+      badge.textContent = "ATTIVO";
+      testa.append(badge);
+    }
+    const meta = document.createElement("p");
+    meta.className = "piano-meta";
+    const fin = p.finestra
+      ? (p.finestra[0] === p.finestra[1] ? `Finestra: giro ${p.finestra[0]}` : `Finestra: giri ${p.finestra[0]}–${p.finestra[1]}`)
+      : "Finestra: da definire";
+    meta.textContent = `${p.soste} ${p.soste === 1 ? "sosta" : "soste"} · ${fin} · ${(p.mescole || []).join(" → ")}`;
+    const desc = document.createElement("p");
+    desc.textContent = p.descrizione || "";
+    card.append(testa, meta, desc);
+    grigliaP.append(card);
+  });
+  boxPiani.append(grigliaP);
+
+  // 2. Setup consigliato
+  const boxSetup = $("#pg-setup");
+  boxSetup.innerHTML = "<h3>Setup consigliato</h3>";
+  const su = d.setup || {};
+  if (su.sessioni_usate) riga(boxSetup, `Aggregato da ${su.sessioni_usate} ${su.sessioni_usate === 1 ? "sessione" : "sessioni"} su ${d.nome}.`).className = "nota";
+  if (su.consigli && su.consigli.length) {
+    su.consigli.forEach((c) => {
+      const div = document.createElement("div");
+      div.className = "consiglio";
+      div.innerHTML = "<span></span><small></small>";
+      div.querySelector("span").textContent = (c.area ? c.area + ": " : "") + c.consiglio;
+      div.querySelector("small").textContent = "Perché: " + c.dato;
+      boxSetup.append(div);
+    });
+  } else {
+    riga(boxSetup, "Nessun aggiustamento netto suggerito dai dati salvati.");
+  }
+  if (su.ultimo_assetto) {
+    const a = su.ultimo_assetto;
+    const righe = [
+      ["Ali ant / post", `${t(a.ala_anteriore)} / ${t(a.ala_posteriore)}`],
+      ["Differenziale (traz / ril)", `${t(a.differenziale_in_trazione)}% / ${t(a.differenziale_in_rilascio)}%`],
+      ["Freni (press / ripart)", `${t(a.pressione_freni)}% / ${t(a.ripartizione_freni)}%`],
+      ["Campanatura ant / post", `${t(a.campanatura_anteriore)} / ${t(a.campanatura_posteriore)}`],
+      ["Pressioni gomme", Array.isArray(a.pressioni_gomme) ? a.pressioni_gomme.join(" / ") : "–"],
+    ];
+    tabella(boxSetup, ["Assetto di riferimento", "Valore"], righe);
+  }
+  if (su.nota) riga(boxSetup, su.nota).className = "nota";
+
+  // 3. Analisi stacco partenza
+  const boxPart = $("#pg-partenza");
+  boxPart.innerHTML = "<h3>Stacco partenza</h3>";
+  const pa = d.partenza || {};
+  const cons = document.createElement("div");
+  cons.className = "consiglio";
+  cons.textContent = pa.consiglio || "Nessun dato di partenza disponibile.";
+  boxPart.append(cons);
+  if (pa.storico && pa.storico.length) {
+    tabella(boxPart, ["Sessione", "Reazione", "Friz. / Gas", "Pattin.", "0–100", "Pos"],
+      pa.storico.map((s) => [
+        `${s.creato || ""} ${s.sessione || ""}`.trim(),
+        s.tempo_reazione_s != null ? s.tempo_reazione_s.toFixed(2) + " s" : null,
+        `${s.frizione_usata ? "sì" : "no"} / ${s.gas_partenza_percento ?? "–"}%`,
+        s.pattinamento_max != null ? s.pattinamento_max.toFixed(2) : null,
+        s.tempo_0_100_s != null ? s.tempo_0_100_s.toFixed(2) + " s" : null,
+        s.posizioni_guadagnate != null ? (s.posizioni_guadagnate > 0 ? "+" + s.posizioni_guadagnate : String(s.posizioni_guadagnate)) : null,
+      ]));
+  }
+
+  // 4. Mappa frenate per curva
+  const boxFren = $("#pg-frenate");
+  boxFren.innerHTML = "<h3>Mappa frenate per curva</h3>";
+  const fr = d.frenate;
+  if (!fr || !(fr.curve || []).length) {
+    riga(boxFren, "Nessun giro salvato su questa pista per costruire la mappa frenate.").className = "nota";
+    return;
+  }
+  const g = fr.giro || {};
+  riga(boxFren, `Dal miglior giro salvato: ${g.tempo || "–"} (${g.pilota || "io"} · ${g.sessione || ""}) · Numerazione: ${fr.numerazione === "ufficiale" ? "ufficiale circuito" : "nostra"}.`).className = "nota";
+  tabella(boxFren, ["Curva", "Frenata m", "V ingresso", "V min", "Marcia min", "Gas pieno m"],
+    fr.curve.map((c) => [
+      c.curva,
+      c.frenata_m,
+      c.vingresso != null ? c.vingresso + " km/h" : null,
+      c.vmin != null ? c.vmin + " km/h" : null,
+      c.marcia_min,
+      c.gas_m,
+    ]));
+}
+
+$("#pg-pista").addEventListener("change", (e) => caricaDettaglioPregara(e.target.value));
+$("#pg-aggiorna").addEventListener("click", () => caricaPregara($("#pg-pista").value));
 
 // ---------- avvio ----------
 if (/^\d+\.\d+\.\d+\.\d+$/.test(location.hostname)) $("#ip-server").textContent = location.hostname;

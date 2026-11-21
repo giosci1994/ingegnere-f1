@@ -133,6 +133,7 @@ def main():
         elif pk.id == P.EVENT and pk.dati is not None:
             for slot, i in ing.items():
                 dici(slot, i.evento(st, pk), pk.header.session_time)
+            an.evento(st, pk)
             if P.codice_evento(pk) == "SEND":
                 chiudi()
         elif pk.id == P.FINAL and pk.dati is not None:

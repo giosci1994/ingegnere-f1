@@ -118,6 +118,7 @@ def costruisci(st, ing, analisi=None):
         "creato": time.strftime("%d/%m/%Y %H:%M"),
         "sessione": P.NOMI_SESSIONE.get(ses.session_type, "sessione") if ses else "sessione",
         "pista": P.PISTE.get(ses.track_id, "") if ses else "",
+        "pista_id": ses.track_id if ses else None,
         "pilota": st.nomi.get(idx, ""),
         "giocatore": ing.slot,
         "formato": st.formato,

@@ -112,7 +112,21 @@ FRASI_FISSE = [
     "Macchina a destra.",
     "Macchine ai due lati.",
     "Libero.",
+    "Batteria molto bassa: fai lift and coast per ricaricare.",
+    "Auto vicina dietro, usa l'ERS per difendere.",
+    "Carburante corto: fai lift and coast prima delle staccate.",
+    "Primo avvertimento track limits, attenzione ai tagli.",
 ]
+
+COMPONENTI_PU = (
+    ("engine_ice_wear", "motore termico"),
+    ("engine_tc_wear", "turbo"),
+    ("engine_mguk_wear", "MGU-K"),
+    ("engine_mguh_wear", "MGU-H"),
+    ("engine_es_wear", "batteria ERS"),
+    ("engine_ce_wear", "centralina"),
+    ("gear_box_damage", "cambio"),
+)
 
 
 class Ingegnere:
@@ -161,6 +175,12 @@ class Ingegnere:
         self.contatti_visti = {}  # altra auto -> self.ora dell'ultimo contatto detto
         self.contatto_detto = None
         self.arrivo_pos = None
+        self.ccw_visti = 0
+        self.pu_avvisata = set()
+        self.motore_caldo_dal = None
+        self.aria_sporca_dal = None
+        self.doppiaggi_visti = {}
+        self.ultimo_ora = {}
 
     # ---------- utilità ----------
     def _puo(self, chiave, attesa, t):
@@ -168,6 +188,14 @@ class Ingegnere:
         if u is not None and u <= t and t - u < attesa:
             return False
         self.ultimo[chiave] = t
+        return True
+
+    def _puo_ora(self, chiave, attesa):
+        """Attesa sull'orologio `self.ora` che non torna indietro con i flashback."""
+        u = self.ultimo_ora.get(chiave)
+        if u is not None and self.ora - u < attesa:
+            return False
+        self.ultimo_ora[chiave] = self.ora
         return True
 
     def _m(self, out, t, categoria, chiave, testo, attesa=30.0, **kw):
@@ -210,15 +238,17 @@ class Ingegnere:
             self.giro = lap.current_lap_num
             return out
 
-        self._bandiere(out, t, st, ses, sta, t2, lap)
+        self._bandiere(out, t, st, ses, sta, t2, lap, tel, idx, gara)
         self._safety_car(out, t, ses, lap)
         self._box(out, t, st, ses, lap, sta, tel, gara)
         self._giro(out, t, st, ses, lap, sta, dmg, gara, idx)
         if gara:
             self._posizioni(out, t, st, lap, idx)
             self._distacchi_vivi(out, t, st, idx, lap, sta, t2)
+            self._track_limits(out, t, lap)
         self._gomme(out, t, st, lap, sta, tel, dmg, gara, ses)
-        self._ers(out, t, sta, t2, gara, lap)
+        self._ers(out, t, st, sta, t2, gara, lap, idx, ses)
+        self._motore_e_pu(out, t, st, idx, lap, tel, dmg, gara, ses)
         self._danni(out, t, dmg)
         self._meteo(out, t, ses, sta, gara)
         self._tempo_sessione(out, t, ses, gara)
@@ -230,26 +260,78 @@ class Ingegnere:
                 del self.ultimo[k]
 
     # ---------- bandiere e sicurezza ----------
-    def _bandiere(self, out, t, st, ses, sta, t2, lap):
+    @staticmethod
+    def _chi_doppia(st, ses, lap, idx):
+        lap_all = st.get(P.LAP)
+        lung = ses.track_length
+        if lap_all is not None and lung > 500:
+            mio = lap_all.cars[idx]
+            cand = []
+            for j in range(min(st.n_auto or len(lap_all.cars), len(lap_all.cars))):
+                if j == idx:
+                    continue
+                c = lap_all.cars[j]
+                if c.result_status != 2 or c.pit_status:
+                    continue
+                if c.total_distance > mio.total_distance + lung * 0.4:
+                    dietro_m = (mio.lap_distance - c.lap_distance) % lung
+                    if 0 < dietro_m < 600:
+                        cand.append((dietro_m, j))
+            if cand:
+                return min(cand)[1]
+        return st.auto_in_posizione(1) if lap.car_position > 1 else None
+
+    def _bandiere(self, out, t, st, ses, sta, t2, lap, tel, idx, gara):
         if t2 is not None and t2.driving_wrong_way:
             self._m(out, t, "bandiere", "contromano", "Stai andando contromano! Girati.",
                     attesa=8, livello=1, ttl=4, interrompe=True, fisso=True)
-        if sta is None:
-            return
-        f = sta.vehicle_fia_flags
-        if f != self.flag:
-            if f == 3:
-                self._m(out, t, "bandiere", "gialla",
-                        scegli("Bandiera gialla, bandiera gialla. Attenzione.",
-                               "Bandiera gialla. Occhio, piano."),
-                        attesa=20, livello=1, ttl=6, interrompe=True, fisso=True)
-            elif f == 2 and st.in_gara():
-                self._m(out, t, "bandiere", "blu", "Bandiera blu. Fai passare.",
-                        attesa=40, livello=1, ttl=8, fisso=True)
-            elif f == 1 and self.flag == 3:
-                self._m(out, t, "bandiere", "verde", "Bandiera verde, pista libera.",
-                        attesa=20, livello=2, ttl=6, fisso=True)
-            self.flag = f
+        if sta is not None:
+            f = sta.vehicle_fia_flags
+            if f != self.flag:
+                if f == 3:
+                    self._m(out, t, "bandiere", "gialla",
+                            scegli("Bandiera gialla, bandiera gialla. Attenzione.",
+                                   "Bandiera gialla. Occhio, piano."),
+                            attesa=20, livello=1, ttl=6, interrompe=True, fisso=True)
+                elif f == 2 and gara:
+                    chi = self._chi_doppia(st, ses, lap, idx)
+                    testo = (f"Bandiera blu, arriva {st.nome(chi)}. Fai passare." if chi is not None
+                             else "Bandiera blu. Fai passare.")
+                    self._m(out, t, "bandiere", "blu", testo,
+                            attesa=40, livello=1, ttl=8, fisso=chi is None)
+                elif f == 1 and self.flag == 3:
+                    self._m(out, t, "bandiere", "verde", "Bandiera verde, pista libera.",
+                            attesa=20, livello=2, ttl=6, fisso=True)
+                self.flag = f
+        # auto doppiata davanti da raggiungere
+        lap_all = st.get(P.LAP)
+        lung = ses.track_length
+        if gara and lap_all is not None and lung > 500 and lap.current_lap_num >= 2 \
+                and not lap.pit_status and ses.safety_car_status == 0:
+            mio = lap_all.cars[idx]
+            speed_ms = max(tel.speed / 3.6 if tel and tel.speed > 40 else 50.0, 25.0)
+            limite_m = min(180.0, speed_ms * 2.0)
+            cand = []
+            for j in range(min(st.n_auto or len(lap_all.cars), len(lap_all.cars))):
+                if j == idx:
+                    continue
+                c = lap_all.cars[j]
+                if c.result_status != 2 or c.pit_status or c.car_position <= mio.car_position:
+                    continue
+                doppiato = (mio.total_distance - c.total_distance >= lung * 0.65) or (
+                    mio.total_distance == 0 and c.total_distance == 0 and mio.current_lap_num > c.current_lap_num)
+                if not doppiato:
+                    continue
+                avanti_m = (c.lap_distance - mio.lap_distance) % lung
+                if 5 < avanti_m < limite_m:
+                    cand.append((avanti_m, j))
+            if cand:
+                j = min(cand)[1]
+                if self.ora - self.doppiaggi_visti.get(j, -1e9) >= 90 and self._puo("doppiaggio", 25, t):
+                    self.doppiaggi_visti[j] = self.ora
+                    out.append(Messaggio("bandiere", "doppiaggio",
+                                         f"Davanti hai {st.nome(j)}, è doppiato.",
+                                         priorita=3, livello=2, ttl=8, creato=t))
 
     def _safety_car(self, out, t, ses, lap):
         s = ses.safety_car_status
@@ -490,11 +572,15 @@ class Ingegnere:
             self._m(out, t, "distacchi", "attacca",
                     f"Sei sotto il secondo da {st.nome(j)}. Attacca!{arma}",
                     attesa=120, livello=2, ttl=6)
+            if any(m.chiave == "attacca" for m in out):
+                self.ultimo_ora["attacca"] = self.ora
         dietro, j = st.distacco_dietro(idx)
         if dietro is not None and 0 < dietro < 0.8:
             self._m(out, t, "distacchi", "difendi",
                     f"{st.nome(j)} è a {dec(dietro)} dietro. Difendi.",
                     attesa=120, livello=2, ttl=6)
+            if any(m.chiave == "difendi" for m in out):
+                self.ultimo_ora["difendi"] = self.ora
 
     # ---------- gomme ----------
     def _gomme(self, out, t, st, lap, sta, tel, dmg, gara, ses):
@@ -521,39 +607,135 @@ class Ingegnere:
                                 attesa=60, livello=liv, ttl=20)
             if usura < 5 and self.soglie_usura:          # gomme nuove
                 self.soglie_usura.clear()
-            for i in range(4):
-                if dmg.tyre_blisters[i] >= 40:
-                    self._m(out, t, "gomme", "blister",
-                            f"Blistering sulla {P.RUOTE[i]}. Gestisci le gomme.",
-                            attesa=300, livello=2, ttl=15)
         if tel is not None and lap.current_lap_num >= 2 and not lap.pit_status and tel.speed > 80:
             interne = list(tel.tyres_inner_temperature)
-            calde = max(interne)
             fredde = sum(interne) / 4
-            if calde >= 112:
-                self._m(out, t, "gomme", "gomme_calde",
-                        f"Gomme surriscaldate, la {P.RUOTE[interne.index(calde)]} è a {calde} gradi. Gestisci.",
-                        attesa=120, livello=2, ttl=10)
-            elif 0 < fredde < 70 and sta is not None and sta.visual_tyre_compound in P.GOMME_SLICK \
+            if 0 < fredde < 70 and sta is not None and sta.visual_tyre_compound in P.GOMME_SLICK \
                     and ses.weather < 3:
                 self._m(out, t, "gomme", "gomme_fredde", "Gomme fredde. Scaldale.",
                         attesa=180, livello=3, ttl=10, fisso=True)
-            # i freni caldi stanno in analisi.py (_freni): servono le curve e un orologio
-            # che non torni indietro con i flashback
+            # gomme surriscaldate, blistering e freni caldi stanno in analisi.py: servono le curve
+            # e l'orologio che non torna indietro con i flashback
+
+    # ---------- track limits ----------
+    def _track_limits(self, out, t, lap):
+        n = lap.corner_cutting_warnings
+        if n < self.ccw_visti:
+            self.ccw_visti = n
+            return
+        if n <= self.ccw_visti:
+            return
+        self.ccw_visti = n
+        self.avvertimenti = max(self.avvertimenti, n)
+        if n % 3 == 2:
+            self._m(out, t, "penalita", "avvertimento_ultimo",
+                    f"{n} avvertimenti track limits, attento ai tagli, al prossimo è penalità.",
+                    attesa=8, livello=1, ttl=10)
+        elif n % 3 == 1:
+            testo = ("Primo avvertimento track limits, attenzione ai tagli." if n == 1
+                     else f"{n} avvertimenti track limits, attenzione ai tagli.")
+            self._m(out, t, "penalita", "avvertimento", testo, attesa=8, livello=2, ttl=10,
+                    fisso=n == 1)
 
     # ---------- batteria e overtake ----------
-    def _ers(self, out, t, sta, t2, gara, lap):
-        if sta is not None and gara and lap.current_lap_num >= 2:
+    def _ers(self, out, t, st, sta, t2, gara, lap, idx, ses):
+        if sta is not None and gara and lap.current_lap_num >= 2 and not lap.pit_status:
             pieno = 4_000_000.0
             perc = 100 * sta.ers_store_energy / pieno
-            if perc < 10:
-                self._m(out, t, "ers", "batteria", "Batteria quasi scarica. Ricarica.",
-                        attesa=240, livello=2, ttl=10, fisso=True)
+            mancano = (ses.total_laps - lap.current_lap_num + 1) if ses.total_laps else 99
+            if perc < 15:
+                if self._puo_ora("lift_coast_ers", 240):
+                    out.append(Messaggio("ers", "lift_coast_ers",
+                                         "Batteria molto bassa: fai lift and coast per ricaricare.",
+                                         livello=2, ttl=12, fisso=True, creato=t))
+                elif perc < 8 and self.ora - self.ultimo_ora.get("lift_coast_ers", -999) > 45:
+                    self._m(out, t, "ers", "batteria", "Batteria quasi scarica. Ricarica.",
+                            attesa=240, livello=2, ttl=10, fisso=True)
+            if mancano > 2 and sta.fuel_remaining_laps < -0.15 \
+                    and t - self.ultimo.get("benzina_poca", -999) >= 120 \
+                    and self._puo_ora("lift_coast_fuel", 300):
+                out.append(Messaggio("carburante", "lift_coast_fuel",
+                                     "Carburante corto: fai lift and coast prima delle staccate.",
+                                     livello=2, ttl=15, fisso=True, creato=t))
+            if ses.safety_car_status == 0:
+                davanti = st.distacco_davanti(idx)
+                dietro, _ = st.distacco_dietro(idx)
+                ha_ot = t2 is not None and t2.overtake_available
+                att_rec = any(m.chiave == "attacca" for m in out) or self.ora - self.ultimo_ora.get("attacca", -1e9) < 30
+                dif_rec = any(m.chiave == "difendi" for m in out) or self.ora - self.ultimo_ora.get("difendi", -1e9) < 30
+                if davanti is not None and 0 < davanti < 1.2 and sta.ers_deploy_mode in (0, 1) \
+                        and perc >= 25 and (ha_ot or perc >= 60) and not att_rec:
+                    if self._puo_ora("ers_attacco", 180):
+                        testo = ("Hai batteria e overtake, spingi per passare." if ha_ot
+                                 else "Batteria carica, spingi con l'ERS per attaccare.")
+                        out.append(Messaggio("ers", "ers_attacco", testo, livello=2, ttl=8, creato=t))
+                elif dietro is not None and 0 < dietro < 1.0 and perc >= 30 and sta.ers_deploy_mode < 2 \
+                        and not dif_rec:
+                    if self._puo_ora("ers_difesa", 180):
+                        out.append(Messaggio("ers", "ers_difesa",
+                                             "Auto vicina dietro, usa l'ERS per difendere.",
+                                             livello=2, ttl=8, fisso=True, creato=t))
         if t2 is not None:
-            if t2.overtake_available and not self.overtake and gara and lap.current_lap_num >= 2:
+            if t2.overtake_available and not self.overtake and gara and lap.current_lap_num >= 2 \
+                    and not any(m.chiave == "ers_attacco" for m in out) \
+                    and self.ora - self.ultimo_ora.get("ers_attacco", -999) > 15:
                 self._m(out, t, "ers", "overtake", "Overtake disponibile. Usalo.",
                         attesa=45, livello=3, ttl=5, fisso=True)
             self.overtake = t2.overtake_available
+
+    # ---------- motore, usura PU e aria pulita ----------
+    def _motore_e_pu(self, out, t, st, idx, lap, tel, dmg, gara, ses):
+        if tel is None or tel.speed <= 50 or lap.pit_status:
+            self.motore_caldo_dal = None
+            self.aria_sporca_dal = None
+            return
+        if gara and tel.speed > 150 and tel.throttle > 0.7 and ses.safety_car_status == 0:
+            davanti = st.distacco_davanti(idx)
+            mot_caldo = tel.engine_temperature >= 120
+            fr_caldi = max(tel.brakes_temperature) >= 1000
+            if davanti is not None and 0 < davanti < 1.0 and (mot_caldo or fr_caldi):
+                if self.aria_sporca_dal is None:
+                    self.aria_sporca_dal = self.ora
+                if self.ora - self.aria_sporca_dal >= 2.0 and self._puo_ora("aria_pulita", 180):
+                    cosa = "Motore caldo" if mot_caldo else "Freni caldi"
+                    out.append(Messaggio("danni", "aria_pulita",
+                                         f"{cosa} in scia, esci a prendere aria pulita.",
+                                         livello=2, ttl=10, creato=t))
+            else:
+                self.aria_sporca_dal = None
+        else:
+            self.aria_sporca_dal = None
+        if tel.engine_temperature >= 125:
+            if self.motore_caldo_dal is None:
+                self.motore_caldo_dal = self.ora
+            if self.ora - self.motore_caldo_dal >= 3.0 and self._puo_ora("motore_caldo", 180):
+                out.append(Messaggio("danni", "motore_caldo",
+                                     f"Motore caldo, {tel.engine_temperature} gradi. Gestisci.",
+                                     livello=2, ttl=12, creato=t))
+        else:
+            self.motore_caldo_dal = None
+        if dmg is not None:
+            cand = []
+            for attr, nome in COMPONENTI_PU:
+                v = getattr(dmg, attr, 0)
+                for soglia, liv in ((90, 1), (75, 2)):
+                    if v >= soglia and (attr, soglia) not in self.pu_avvisata:
+                        cand.append((v, soglia, liv, attr, nome))
+                        break
+            if cand:
+                v, soglia, liv, attr, nome = max(cand)
+                if self._puo("usura_pu_globale", 60, t):
+                    for s in (75, 90):
+                        if s <= soglia:
+                            self.pu_avvisata.add((attr, s))
+                    if liv == 1:
+                        out.append(Messaggio("danni", "usura_pu_critica",
+                                             f"Attenzione, usura critica {nome} al {pct(v)}.",
+                                             priorita=2, livello=1, ttl=15, creato=t))
+                    else:
+                        out.append(Messaggio("danni", "usura_pu",
+                                             f"Usura {nome} al {pct(v)}, gestisci.",
+                                             livello=2, ttl=15, creato=t))
 
     # ---------- danni ----------
     def _danni(self, out, t, dmg):
@@ -684,12 +866,18 @@ class Ingegnere:
                     testo = "Bandiera a scacchi. Bel lavoro."
                 self._m(out, t, "giri", "arrivo", testo, attesa=600, livello=1, ttl=30,
                         priorita=2)
-        elif code == "FTLP":
-            if d.fastest_lap.vehicle_idx == idx and st.in_gara():
+        elif code == "FTLP" and st.in_gara():
+            v_idx = d.fastest_lap.vehicle_idx
+            if v_idx == idx:
                 appena = any(k.startswith("best") and 0 <= t - v < 10 for k, v in self.ultimo.items())
                 testo = ("È anche il giro più veloce della gara. Grande." if appena else
                          f"Giro più veloce della gara! {tempo_giro(int(d.fastest_lap.lap_time * 1000))}. Grande.")
                 self._m(out, t, "record", "giro_veloce", testo, attesa=30, livello=1, ttl=15)
+            elif 0 <= v_idx < (st.n_auto or 24) and d.fastest_lap.lap_time > 0:
+                ms_ = int(round(d.fastest_lap.lap_time * 1000))
+                self._m(out, t, "record", "giro_veloce_altri",
+                        f"{st.nome(v_idx)} giro più veloce, {tempo_giro(ms_)}.",
+                        attesa=25, livello=2, ttl=12)
         elif code == "PENA":
             pe = d.penalty
             if pe.vehicle_idx == idx:
@@ -745,10 +933,11 @@ class Ingegnere:
         elif tipo == 5:
             n = lap.corner_cutting_warnings if lap else 0
             self.avvertimenti = max(self.avvertimenti, n)
-            testo = "Avvertimento per i limiti della pista."
-            if n:
-                testo += f" Sei a {n}."
-            self._m(out, t, "penalita", "avvertimento", testo, attesa=10, livello=2, ttl=10)
+            if pe.infringement_type != 7 or not st.in_gara():
+                testo = "Avvertimento per i limiti della pista."
+                if n:
+                    testo += f" Sei a {n}."
+                self._m(out, t, "penalita", "avvertimento", testo, attesa=10, livello=2, ttl=10)
         elif tipo == 6:
             self._m(out, t, "penalita", "squalifica", "Squalificati. Mi dispiace.",
                     attesa=600, livello=1, ttl=15)

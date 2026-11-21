@@ -30,6 +30,10 @@ BASE = {
     "overtake": "overtéik",
     "lift and coast": "lift end còust",
     "blistering": "blìsterin",
+    "brake bias": "bréik bàias",
+    "track limits": "trèk lìmits",
+    "MGU-K": "emme gi u cappa",
+    "MGU-H": "emme gi u acca",
     # piloti 2026 (dal pacchetto participants delle gare vere del 20/11/2026)
     "Hadjar": "Agiàr",
     "Russell": "Ràssel",

@@ -101,6 +101,27 @@ ETICHETTE = {
     "gomme:prev_usura@3": "con che usura finisci la gara",
     "spotter:spotter": "spotter: macchina affiancata",
     "spotter:spotter_libero": "spotter: «libero»",
+    # fase 6 · blocco 1
+    "bandiere:doppiaggio": "auto doppiata davanti",
+    "penalita:avvertimento_ultimo": "ultimo avvertimento track limits prima della penalità",
+    "ers:lift_coast_ers": "lift and coast quando la batteria è bassa",
+    "ers:ers_attacco": "quando usare l'ERS in attacco",
+    "ers:ers_difesa": "quando usare l'ERS in difesa",
+    "carburante:lift_coast_fuel": "lift and coast per risparmiare carburante",
+    "danni:motore_caldo": "motore surriscaldato",
+    "danni:aria_pulita": "prendere aria pulita in scia",
+    "danni:usura_pu": "usura alta di motore, turbo, ERS o cambio",
+    "danni:usura_pu_critica": "usura critica di motore, turbo, ERS o cambio",
+    "record:giro_veloce_altri": "giro più veloce degli avversari",
+    "gomme:brake_bias": "consigli sulla ripartizione di frenata",
+    "strategia:sosta_gomma": "soste degli avversari e gomme montate",
+    "strategia:target_lap": "tempo obiettivo per gestire le gomme",
+    "passo:settore_altro": "settori contro chi è davanti e dietro",
+    # fase 6 · blocco 2
+    "strategia:piano_strategia": "cambio piano di strategia (A, B, C)",
+    "strategia:resta_fuori": "chiamata «resta fuori» se cambia la situazione",
+    "box:box_questo_giro": "chiamata «box questo giro» sul giro target",
+    "guida:confronto_ext": "consigli di guida dal confronto con compagno o leader",
 }
 
 # livelli che nel codice sono una variabile: si scrivono qui (e la prova li controlla)

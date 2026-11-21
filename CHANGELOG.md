@@ -4,6 +4,42 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] - 2026-11-21
+
+Phase 6 (Block 1 + Block 2): richer live dashboard, proactive race/telemetry calls, dynamic
+Plan A/B/C strategy, teammate/rival corner comparison, and Pre-race tab.
+
+### Added
+- **Live dashboard**: real-time lap delta bar against the reference lap, 4-wheel card (wear %,
+  surface and inner temperatures, blistering), ERS battery/deploy mode/Overtake status, and
+  active race strategy plan badge.
+- **Coaching cap & track limits**: configurable per-session coaching limit (`max_consigli_guida`,
+  default 12, 0 = unlimited) and pre-penalty track-limit warnings (`corner_cutting_warnings`).
+- **ERS, Lift & Coast, Brake Bias & PU**: ERS attack/defence calls, Lift & Coast calls for low
+  battery or fuel, live brake-bias adjustments from 20 Hz lockup detection and front/rear
+  heat/wear imbalance, engine/PU wear warnings, and clean-air slipstream calls.
+- **Tyre overheating & blistering with corner**: persistent surface/inner temperature and
+  blistering calls naming the worst corners.
+- **Target Lap & rival telemetry**: target lap time before the pit window, fastest-lap (`FTLP`)
+  and pit-exit tyre calls for rivals, sector-by-sector comparison against cars ahead/behind,
+  named blue flags, and lapped-car warnings ahead.
+- **Plan A / B / C & explicit pit calls**: pre-start and live race calculation of Plan A
+  (standard), Plan B (aggressive / undercut / 2-stop), and Plan C (conservative / rain),
+  automatic in-race switches, active plan in `strategia` button response and UI, and explicit
+  pit calls (*«Box questo giro»*, *«Box per undercut»*, and *«Resta fuori»* when the target
+  pits first or SC/VSC/rain invalidates the call).
+- **Teammate / fastest rival corner comparison**: in-memory clean-lap tracing of eligible
+  cars (`your_telemetry` / AI, never saved into `dati/giri/`), automatic selection of teammate
+  or fastest available rival, live corner-by-corner coaching calls, and session summary table.
+- **Pre-race tab & API (`/api/pregara`, `/api/pregara/<pista>`)**: responsive Pre-race view
+  with Plan A/B/C, aggregated setup suggestions (via `assetto.py`, no suspension/height guesses),
+  per-corner braking map (`numeri_curve.py`, braking metre, entry speed, min speed, min gear,
+  full throttle), and race-start launch analysis (`LGOT`, `start_reaction_time`, `clutch`,
+  `throttle`, `wheel_slip`, 0–100 km/h, history & advice).
+
+### Tests
+- `prove/prova_fase6.py` (added to CI) and extended `prove/pagina.py` (5 viewports, Pre-race tab).
+
 ## [0.5.0] - 2026-11-20
 
 Ten calls and buttons found in similar projects (Crew Chief, iRacing's crew chief, Pits n'

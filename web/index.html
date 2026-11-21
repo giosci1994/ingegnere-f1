@@ -27,6 +27,7 @@
 
 <nav>
   <button data-vista="radio" class="attivo">Radio</button>
+  <button data-vista="pregara">Pre-gara</button>
   <button data-vista="avvisi">Avvisi</button>
   <button data-vista="gare">Riassunti</button>
   <button data-vista="traiettoria">Traiettoria</button>
@@ -40,6 +41,11 @@
       <button id="collega" class="grande">📻 Collega la radio</button>
       <p id="nota-radio" class="nota">Tocca una volta: su iPhone l'audio parte solo dopo un tocco. Tieni la pagina aperta e in primo piano.</p>
 
+      <div id="delta-box" class="delta-box">
+        <div class="delta-testo"><span class="eti">Delta giro</span><b id="c-delta">–</b></div>
+        <div class="delta-barra"><div class="delta-centro"></div><div id="delta-fill" class="delta-fill"></div></div>
+      </div>
+
       <div id="cruscotto" class="cruscotto">
         <div class="cella"><span class="eti">Posizione</span><b id="c-pos">–</b></div>
         <div class="cella"><span class="eti">Giro</span><b id="c-giro">–</b></div>
@@ -50,10 +56,45 @@
         <div class="cella"><span class="eti">Benzina</span><b id="c-benzina">–</b></div>
         <div class="cella"><span class="eti">Batteria</span><b id="c-batteria">–</b></div>
       </div>
+
+      <div id="ers-box" class="ers-box">
+        <div class="ers-testa"><span class="eti">ERS</span><span id="c-ers-info" class="ers-badge">–</span></div>
+        <div class="ers-barra"><div id="ers-fill" class="ers-fill"></div></div>
+      </div>
+
+      <div id="piano-box" class="piano-box" hidden>
+        <div class="piano-testa"><span class="eti">Strategia gara</span><b id="c-piano-attivo">–</b></div>
+        <small id="c-piano-dettaglio" class="nota"></small>
+      </div>
+
+      <div id="ruote" class="ruote">
+        <div class="ruota" data-r="0"><span class="r-eti">AS</span><b class="r-usura">–</b><small class="r-temp">–</small><small class="r-blister"></small></div>
+        <div class="ruota" data-r="1"><span class="r-eti">AD</span><b class="r-usura">–</b><small class="r-temp">–</small><small class="r-blister"></small></div>
+        <div class="ruota" data-r="2"><span class="r-eti">PS</span><b class="r-usura">–</b><small class="r-temp">–</small><small class="r-blister"></small></div>
+        <div class="ruota" data-r="3"><span class="r-eti">PD</span><b class="r-usura">–</b><small class="r-temp">–</small><small class="r-blister"></small></div>
+      </div>
     </div>
     <div class="blocco">
       <h2>Ultime chiamate</h2>
       <ul id="frasi" class="frasi"><li class="vuoto">Ancora niente.</li></ul>
+    </div>
+  </section>
+
+  <!-- PRE-GARA: piano A/B/C, setup consigliato, stacco partenza e mappa frenate -->
+  <section id="v-pregara" class="vista">
+    <div class="scheda pregara-scelta">
+      <div class="riga-scelta">
+        <h2>Pre-gara</h2>
+        <button id="pg-aggiorna" class="piccolo">Aggiorna</button>
+      </div>
+      <label class="cursore">Pista <select id="pg-pista" class="campo"></select></label>
+      <p id="pg-vuoto" class="nota" hidden>Nessuna pista ancora salvata: guida almeno un giro o collega la PS5.</p>
+    </div>
+    <div id="pg-contenuto" class="pregara-griglia">
+      <div id="pg-piani" class="scheda largo2"></div>
+      <div id="pg-setup" class="scheda"></div>
+      <div id="pg-partenza" class="scheda"></div>
+      <div id="pg-frenate" class="scheda largo2"></div>
     </div>
   </section>
 
@@ -67,6 +108,8 @@
         <div id="categorie" class="interruttori"></div>
         <label class="interruttore"><input type="checkbox" id="silenzio_qualifica"><span>Silenzio radio nel giro lanciato in qualifica (solo gli avvisi urgenti; il resto dopo il traguardo)</span></label>
         <label class="interruttore"><input type="checkbox" id="una_curva_alla_volta"><span>In prova: una curva alla volta (la peggiore, finché migliora)</span></label>
+        <label class="cursore">Consigli di guida max per sessione (0 = illimitati) <output id="o-max_consigli"></output>
+          <input type="range" id="max_consigli_guida" min="0" max="30" step="1"></label>
       </div>
 
       <div class="blocco">

@@ -99,6 +99,13 @@ def _strategia(st, ing, an, idx, ses, lap):
         return "Niente strategia di gara in questa sessione."
     n = lap.current_lap_num
     parti = []
+    pg = getattr(an, "piani_gara", None)
+    if pg and pg.get("piani"):
+        att = pg.get("attivo", "A")
+        p = pg["piani"].get(att)
+        if p:
+            extra_p = f" Target giro {p['target_giro']}." if p.get("target_giro") and att != "A" else ""
+            parti.append(f"Piano attivo: {p['nome']}, {p['stile'].lower()}.{extra_p}")
     ideale, ultimo = ses.pit_stop_window_ideal_lap, ses.pit_stop_window_latest_lap
     if lap.num_pit_stops and ideale and n > max(ideale, ultimo):
         parti.append("Sosta fatta.")
@@ -125,6 +132,9 @@ def _strategia(st, ing, an, idx, ses, lap):
     scelta = G.set_per_sosta(st, idx, mancano) if mancano > 2 else None
     if scelta is not None:
         parti.append(G.frase_set(scelta))
+    tl = G.target_lap(an, st, ses, lap, idx)
+    if tl is not None:
+        parti.append(f"Passo obiettivo per il giro {tl['ideale']}: {tempo_giro(tl['target_ms'])}.")
     return " ".join(parti) or "Per la strategia mi servono ancora un paio di giri."
 
 

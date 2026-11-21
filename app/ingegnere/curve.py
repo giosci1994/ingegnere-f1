@@ -107,12 +107,26 @@ def misura(c, cu, idx=None):
     vmin = min(vs)
     imin = sub[vs.index(vmin)]
     frenata = None
+    i_frenata = None
     for i in idx[a:]:
         if i > imin:
             break
         if c["br"][i] is not None and c["br"][i] > 0.1:
             frenata = c["d"][i]
+            i_frenata = i
             break
+    vingresso = None
+    if i_frenata is not None and c["v"][i_frenata] is not None:
+        vingresso = c["v"][i_frenata]
+    else:
+        ent = [c["v"][i] for i in idx[a:] if i <= imin and c["d"][i] >= ap - 250 and c["v"][i] is not None]
+        vingresso = max(ent) if ent else None
+    g_serie = c.get("g")
+    marcia_min = None
+    if g_serie:
+        marce = [g_serie[i] for i in sub if g_serie[i] is not None and g_serie[i] > 0]
+        if marce:
+            marcia_min = min(marce)
     gas = None
     for i in idx[idx.index(imin):b + 1] if imin in idx else []:
         if c["th"][i] is not None and c["th"][i] > 0.9:
@@ -137,7 +151,8 @@ def misura(c, cu, idx=None):
                 break
             if c["st"][i] is not None:
                 sterzi.append(abs(c["st"][i]))
-    out = {"frenata": frenata, "vmin": vmin, "gas": gas, "rilascio": rilascio,
+    out = {"frenata": frenata, "vingresso": vingresso, "vmin": vmin, "marcia_min": marcia_min,
+           "gas": gas, "rilascio": rilascio,
            "sterzo_uscita": round(sum(sterzi) / len(sterzi), 3) if sterzi else None}
     if "inizio" in cu:
         t0, t1 = tempo_a(c, cu["inizio"], idx), tempo_a(c, cu["fine"], idx)

@@ -5,6 +5,7 @@ del riassunto (guida, assetto, strategia, ali).
 Una Analisi per sessione, per l'auto del giocatore (player_car_index).
 """
 
+from bisect import bisect_left
 import statistics
 
 from . import assetto as A
@@ -13,6 +14,9 @@ from . import gara as G
 from . import numeri_curve as N
 from . import pacchetti as P
 from .ingegnere import Messaggio, dec, pct, pos
+from .pregara import StaccoPartenza
+from .riassunto import fmt
+from .riferimento import RiferimentoEsterno
 from .strategia import Strategia
 from .traccia import Biblioteca, Tracciatore, copertura
 
@@ -61,6 +65,33 @@ class Analisi:
         self.benzina = []          # (giro finito, kg nel serbatoio)
         self.sc_prec = 0
         self.mescola_detta = -1    # numero di soste quando si è detto il set per la sosta
+        # fase 6 (blocco 1)
+        self._rif_d = []
+        self._rif_t = []
+        self.consigli_sessione = 0
+        self.soste_coperte = {}
+        self.blocchi_av_t = []
+        self.blocchi_post_t = []
+        self._blocco_av = False
+        self._blocco_post = False
+        self._bias_sbil_dal = None
+        self._bias_consigliato = None
+        self.gomme_calde_dal = None
+        self.gomme_curve = {}
+        self._gomme_giro = set()
+        self._blister_max = 0
+        self.settori_auto = {}
+        self.settori_giro_car = {}
+        self.settore_gara_prec = None
+        self.ultimo_target_lap = None
+        # fase 6 (blocco 2)
+        self.rif_ext = RiferimentoEsterno()
+        self.stacco = StaccoPartenza()
+        self.piano_attivo = "A"
+        self.piani_gara = None
+        self._box_chiamato = None
+        self._box_giro_stint = -1
+        self._sc_soppresso = None
 
     def _puo(self, chiave, attesa, t):
         """Attesa prima di ripetere, sull'orologio che non torna indietro con i flashback
@@ -72,10 +103,36 @@ class Analisi:
         return True
 
     # ---------- a ogni pacchetto di telemetria ----------
+    def _rileva_bloccaggi(self, st, idx):
+        lap = st.auto(P.LAP, idx)
+        tel = st.auto(P.TELEMETRY, idx)
+        mex = st.get(P.MOTIONEX)
+        if lap is None or tel is None or mex is None or lap.driver_status == 0 or lap.pit_status \
+                or tel.brake <= 0.2 or tel.speed <= 60:
+            self._blocco_av = self._blocco_post = False
+            return
+        s = mex.wheel_slip_ratio
+        av = min(s[2], s[3]) < -0.2
+        post = min(s[0], s[1]) < -0.25
+        if av and not self._blocco_av:
+            if not self.blocchi_av_t or self.ora - self.blocchi_av_t[-1] >= 2.0:
+                self.blocchi_av_t.append(self.ora)
+        self._blocco_av = av
+        if post and not self._blocco_post:
+            if not self.blocchi_post_t or self.ora - self.blocchi_post_t[-1] >= 2.0:
+                self.blocchi_post_t.append(self.ora)
+        self._blocco_post = post
+
+    def evento(self, st, pk):
+        self.stacco.evento(st, pk)
+
     def campione(self, st):
         idx = st.indice()
         if idx is None:
             return
+        self._rileva_bloccaggi(st, idx)
+        self.stacco.campione(st, idx)
+        self.rif_ext.campione(st, idx)
         finito = self.trac.campione(st, idx)
         if finito is None:
             return
@@ -109,6 +166,9 @@ class Analisi:
 
     def _imposta_rif(self, meta, c, lunghezza=None):
         self.rif = (meta, c)
+        idx_v = C._validi(c)
+        self._rif_d = [c["d"][i] for i in idx_v]
+        self._rif_t = [c["t"][i] for i in idx_v]
         self.curve = C.trova_curve(c)
         if lunghezza is None:
             lunghezza = max((d for d in c["d"] if d is not None), default=0)
@@ -118,6 +178,29 @@ class Analisi:
             cu = self._curva_vicina(self.fuoco["apice"])
             if cu is not None:
                 self.fuoco["nome"] = cu["nome"]
+
+    def delta_live(self, st):
+        """Delta istantaneo (secondi, < 0 = più veloce del riferimento) rispetto a `self.rif`."""
+        idx = st.indice()
+        lap = st.auto(P.LAP, idx)
+        if not self._rif_d or lap is None or lap.driver_status == 0 or lap.pit_status:
+            return None
+        d = lap.lap_distance
+        if d < self._rif_d[0] or d > self._rif_d[-1]:
+            return None
+        t_cur = lap.current_lap_time_in_ms / 1000.0
+        if t_cur <= 0:
+            return None
+        k = bisect_left(self._rif_d, d)
+        if k <= 0:
+            t_rif = self._rif_t[0]
+        elif k >= len(self._rif_d):
+            t_rif = self._rif_t[-1]
+        else:
+            d0, d1 = self._rif_d[k - 1], self._rif_d[k]
+            t0, t1 = self._rif_t[k - 1], self._rif_t[k]
+            t_rif = t1 if d1 == d0 else t0 + (t1 - t0) * (d - d0) / (d1 - d0)
+        return round(t_cur - t_rif, 2)
 
     def _curva_vicina(self, d, entro=150):
         if not self.curve:
@@ -148,9 +231,13 @@ class Analisi:
         idx = st.indice()
         ses = st.sessione()
         lap = st.auto(P.LAP, idx)
-        if idx is None or ses is None or lap is None or ses.game_paused or lap.driver_status == 0:
+        if idx is None or ses is None or lap is None or ses.game_paused:
             return []
         t = st.tempo()
+        if lap.driver_status == 0:
+            if st.in_gara():
+                G.aggiorna_piani(self, [], t, st, ses, lap, idx, [])
+            return []
         if self._t_prec is not None and 0 < t - self._t_prec < 2:
             self.ora += t - self._t_prec
         self._t_prec = t
@@ -166,16 +253,25 @@ class Analisi:
             self.valutate = set()
             self.dette_giro = 0
             self._freni_giro = set()
+            self._gomme_giro = set()
         if self.rif is None and lap.current_lap_num <= 2:
             self.rif_da_biblioteca(st)
+        self._rileva_bloccaggi(st, idx)
+        if st.in_gara():
+            G.aggiorna_settori_auto(self, st)
         self._guida(out, t, st, ses, lap)
         self._freni(out, t, st, lap, idx)
+        self._gomme_calde(out, t, st, lap, idx)
+        self._brake_bias(out, t, st, lap, idx)
         G.settori(self, out, t, st, ses, lap)
         if st.in_gara():
             self._strategia(out, t, st, ses, lap, idx, nuove_soste)
+            G.aggiorna_piani(self, out, t, st, ses, lap, idx, nuove_soste)
             G.box_sc(self, out, t, st, ses, lap, idx)
             G.mescola(self, out, t, st, ses, lap, idx)
             G.passo(self, out, t, st, ses, lap, idx, giro_finito)
+            G.settori_avversari(self, out, t, st, ses, lap, idx, giro_finito)
+            G.target_lap_avviso(self, out, t, st, ses, lap, idx, giro_finito)
             G.previsioni(self, out, t, st, ses, lap, idx, giro_finito)
         if st.formato == 2026:
             self._ali(out, t, st, ses, lap, idx)
@@ -185,38 +281,57 @@ class Analisi:
         """Dopo ogni curva, sul rettilineo: che cosa fare per non perdere tempo lì, con il dato.
         Stesse soglie di prima: perdita ≥ 0,15 s con una causa, massimo 2 a giro, non in pit,
         safety car o primo giro di gara. In prova (impostazione «una curva alla volta») si parla
-        di una curva sola, la peggiore, finché migliora; poi si passa alla successiva."""
+        di una curva sola, la peggiore, finché migliora; poi si passa alla successiva. Se c'è un
+        compagno di squadra o riferimento più veloce, integra con il confronto curva per curva."""
         g = self.trac.giro
-        if not self.curve or g is None or lap.pit_status or ses.safety_car_status in (1, 2):
+        if g is None or lap.pit_status or ses.safety_car_status in (1, 2):
             return
         if st.in_gara() and lap.current_lap_num <= 1:
             return
+        idx = st.indice()
+        mio_best = self.rif[0]["tempo_ms"] if self.rif is not None else None
+        rif_ext = self.rif_ext.seleziona(st, idx, mio_best)
+        curve_eff = self.curve
+        if not curve_eff and rif_ext is not None:
+            curve_eff, _ = self.rif_ext.curve_per_confronto(st, self.curve, self.numerazione, rif_ext)
+        if not curve_eff:
+            return
         fuoco_acceso = self.imp["una_curva_alla_volta"] and st.tipo_sessione() in P.SESSIONE_PROVE
+        cap = self.imp.get("max_consigli_guida", 12)
         d = lap.lap_distance
-        for cu in self.curve:
+        for cu in curve_eff:
             if cu["n"] in self.valutate or d < cu["fine"] + 60:
                 continue
             self.valutate.add(cu["n"])
             if d > cu["fine"] + 600:          # siamo partiti a metà giro: niente confronto
                 continue
             m = C.misura(g.c, cu)
-            r = self.rif_misure.get(cu["n"])
-            if not r or m.get("tempo") is None or r.get("tempo") is None:
-                continue
-            delta = m["tempo"] - r["tempo"]
-            k, come = C.consiglio(m, r)
-            self.ultime_perdite[cu["nome"]] = (delta, come, cu["apice"])
-            if fuoco_acceso:
-                self._fuoco(out, t, cu, delta, k, come)
-                continue
-            if delta < 0.15 or self.dette_giro >= 2:
-                continue
-            if not k or not self._puo(f"curva{cu['nome']}", 120, t):
-                continue
-            self.dette_giro += 1
-            out.append(Messaggio("guida", f"curva{cu['nome']}",
-                                 f"{N.etichetta(cu)}, {come}. Perdi {C.decimi(delta)}.",
-                                 livello=2, ttl=6, creato=t))
+            emesso_qui = False
+            if self.rif is not None:
+                r = self.rif_misure.get(cu["n"])
+                if r and m.get("tempo") is not None and r.get("tempo") is not None:
+                    delta = m["tempo"] - r["tempo"]
+                    k, come = C.consiglio(m, r)
+                    self.ultime_perdite[cu["nome"]] = (delta, come, cu["apice"])
+                    if cap <= 0 or self.consigli_sessione < cap:
+                        if fuoco_acceso:
+                            self._fuoco(out, t, cu, delta, k, come)
+                            emesso_qui = True
+                        elif delta >= 0.15 and self.dette_giro < 2 and k and self._puo(f"curva{cu['nome']}", 120, t):
+                            self.dette_giro += 1
+                            self.consigli_sessione += 1
+                            out.append(Messaggio("guida", f"curva{cu['nome']}",
+                                                 f"{N.etichetta(cu)}, {come}. Perdi {C.decimi(delta)}.",
+                                                 livello=2, ttl=6, creato=t))
+                            emesso_qui = True
+            if not emesso_qui and not fuoco_acceso and rif_ext is not None \
+                    and self.dette_giro < 2 and (cap <= 0 or self.consigli_sessione < cap):
+                frase_ext, _ = self.rif_ext.consiglio_curva(m, cu, rif_ext, curve_eff)
+                if frase_ext and self._puo(f"confronto_ext{cu['nome']}", 150, t):
+                    self.dette_giro += 1
+                    self.consigli_sessione += 1
+                    out.append(Messaggio("guida", f"confronto_ext{cu['nome']}", frase_ext,
+                                         livello=2, ttl=8, creato=t))
 
     def _prossima(self, esclusa):
         """La curva peggiore dell'ultimo giro (con un consiglio), tra quelle non ancora sistemate."""
@@ -242,6 +357,7 @@ class Analisi:
                          f"lì perdi {C.decimi(f['perdita'])}.") if c2 else None
                 if testo and self.dette_giro < 2:
                     self.dette_giro += 1
+                    self.consigli_sessione += 1
                     out.append(Messaggio("guida", "fuoco", testo, livello=2, ttl=8, creato=t))
                 return
         if cu["nome"] != f["nome"]:
@@ -260,9 +376,11 @@ class Analisi:
                 if c2 is not None:
                     testo += f" Passiamo {N.etichetta(c2, False, 'a')}: lì perdi {C.decimi(dopo['perdita'])}."
             self.fuoco = dopo
+            self.consigli_sessione += 1
             out.append(Messaggio("guida", "fuoco", testo, livello=2, ttl=8, creato=t))
             return
         if delta >= 0.15 and k:
+            self.consigli_sessione += 1
             out.append(Messaggio("guida", "fuoco", f"{N.etichetta(cu)}, {come}. Perdi {C.decimi(delta)}.",
                                  livello=2, ttl=8, creato=t))
 
@@ -300,6 +418,122 @@ class Analisi:
                 testo += f" Soprattutto {N.etichetta(c2, False, 'a')}."
         testo += " Alza il piede un attimo prima di frenare."
         out.append(Messaggio("gomme", "freni", testo, livello=2, ttl=10, creato=t))
+
+    def _frase_curve(self, conteggi, min_volte=2, attuale=None):
+        """Le 1–2 curve dove un problema si ripete di più (o la curva corrente)."""
+        top = [n for n, v in sorted(conteggi.items(), key=lambda x: -x[1]) if v >= min_volte][:2]
+        c_list = [next((x for x in self.curve if x["nome"] == n), None) for n in top]
+        c_list = [c for c in c_list if c is not None]
+        if not c_list and attuale is not None:
+            c_list = [attuale]
+        if not c_list:
+            return ""
+        if len(c_list) == 1:
+            return f" Soprattutto {N.etichetta(c_list[0], False, 'a')}."
+        return f" Soprattutto {N.etichetta(c_list[0], False, 'a')} e {N.etichetta(c_list[1], False, 'a')}."
+
+    def _gomme_calde(self, out, t, st, lap, idx):
+        """Temperature gomme (superficie e carcassa) persistenti e blistering, con le curve."""
+        tel = st.auto(P.TELEMETRY, idx)
+        dmg = st.auto(P.DAMAGE, idx)
+        mex = st.get(P.MOTIONEX)
+        if lap.current_lap_num >= 2 and not lap.pit_status and tel is not None and tel.speed > 80:
+            ts = list(tel.tyres_surface_temperature)
+            ti = list(tel.tyres_inner_temperature)
+            max_ts, max_ti = max(ts), max(ti)
+            slip = max((abs(x) for x in mex.wheel_slip_ratio), default=0) if mex is not None else 0
+            cu = self.curva_del_tratto(lap.lap_distance)
+            if max_ts >= 115 or max_ti >= 110 or slip >= 0.25:
+                if cu is not None and cu["nome"] not in self._gomme_giro:
+                    self._gomme_giro.add(cu["nome"])
+                    self.gomme_curve[cu["nome"]] = self.gomme_curve.get(cu["nome"], 0) + 1
+            if max_ts >= 115 or max_ti >= 110:
+                if self.gomme_calde_dal is None:
+                    self.gomme_calde_dal = self.ora
+                if self.ora - self.gomme_calde_dal >= 3.0 and self._puo("gomme_calde", 150, t):
+                    if max_ti >= 110:
+                        i_hot, tval, dove_t = ti.index(max_ti), max_ti, "carcassa"
+                    else:
+                        i_hot, tval, dove_t = ts.index(max_ts), max_ts, "superficie"
+                    extra_cu = self._frase_curve(self.gomme_curve, attuale=cu)
+                    out.append(Messaggio(
+                        "gomme", "gomme_calde",
+                        f"Gomme surriscaldate, {dove_t} {P.RUOTE[i_hot]} a {tval} gradi.{extra_cu} Gestisci.",
+                        livello=2, ttl=12, creato=t))
+            else:
+                self.gomme_calde_dal = None
+        else:
+            self.gomme_calde_dal = None
+        if dmg is not None:
+            mb = max(dmg.tyre_blisters)
+            if mb < 5:
+                self._blister_max = 0
+            elif mb >= 20 and (self._blister_max < 20 or mb >= self._blister_max + 20) \
+                    and self._puo("blister", 240, t):
+                self._blister_max = mb
+                i_b = list(dmg.tyre_blisters).index(mb)
+                extra_cu = self._frase_curve(self.gomme_curve, min_volte=1)
+                out.append(Messaggio(
+                    "gomme", "blister",
+                    f"Blistering sulla {P.RUOTE[i_b]}, {pct(mb)}.{extra_cu} Gestisci le gomme.",
+                    livello=2, ttl=15, creato=t))
+
+    def _brake_bias(self, out, t, st, lap, idx):
+        """Consiglia di spostare il brake bias indietro/avanti per bloccaggi ripetuti o sbilanciamento."""
+        tel = st.auto(P.TELEMETRY, idx)
+        sta = st.auto(P.STATUS, idx)
+        dmg = st.auto(P.DAMAGE, idx)
+        if lap.current_lap_num < 2 or lap.pit_status or tel is None or sta is None \
+                or tel.speed <= 80 or sta.front_brake_bias <= 0:
+            self._bias_sbil_dal = None
+            return
+        bias = sta.front_brake_bias
+        self.blocchi_av_t = [x for x in self.blocchi_av_t if self.ora - x <= 120]
+        self.blocchi_post_t = [x for x in self.blocchi_post_t if self.ora - x <= 120]
+        if len(self.blocchi_av_t) >= 2 and bias > 45 and self._puo("brake_bias", 240, t):
+            self.blocchi_av_t.clear()
+            out.append(Messaggio(
+                "gomme", "brake_bias",
+                f"Bloccaggi ripetuti davanti: sposta il brake bias indietro di 1 o 2 punti, verso {max(40, bias - 2)}.",
+                livello=2, ttl=12, creato=t))
+            return
+        if len(self.blocchi_post_t) >= 2 and bias < 68 and self._puo("brake_bias", 240, t):
+            self.blocchi_post_t.clear()
+            out.append(Messaggio(
+                "gomme", "brake_bias",
+                f"Bloccaggi dietro: sposta il brake bias avanti di 1 o 2 punti, verso {min(70, bias + 2)}.",
+                livello=2, ttl=12, creato=t))
+            return
+        bt = list(tel.brakes_temperature)
+        ti = list(tel.tyres_inner_temperature)
+        b_ant, b_post = (bt[2] + bt[3]) / 2, (bt[0] + bt[1]) / 2
+        t_ant, t_post = (ti[2] + ti[3]) / 2, (ti[0] + ti[1]) / 2
+        w = list(dmg.tyres_wear) if dmg is not None else None
+        w_ant, w_post, w_max = ((w[2] + w[3]) / 2, (w[0] + w[1]) / 2, max(w)) if w else (0, 0, 0)
+        davanti_peso = (b_ant - b_post >= 200 and max(bt) >= 850) or (t_ant - t_post >= 14 and max(ti) >= 105) \
+            or (w_max >= 25 and w_ant - w_post >= 12)
+        dietro_peso = (b_post - b_ant >= 200 and max(bt) >= 850) or (t_post - t_ant >= 14 and max(ti) >= 105) \
+            or (w_max >= 25 and w_post - w_ant >= 12)
+        if davanti_peso and not dietro_peso and bias > 45 and self._bias_consigliato != ("av", bias):
+            if not self._bias_sbil_dal or self._bias_sbil_dal[0] != "av":
+                self._bias_sbil_dal = ("av", self.ora)
+            elif self.ora - self._bias_sbil_dal[1] >= 4.0 and self._puo("brake_bias", 360, t):
+                self._bias_consigliato = ("av", bias)
+                out.append(Messaggio(
+                    "gomme", "brake_bias",
+                    f"Anteriore più sollecitato del posteriore: sposta il brake bias indietro di 1 o 2 punti, verso {max(40, bias - 2)}.",
+                    livello=2, ttl=12, creato=t))
+        elif dietro_peso and not davanti_peso and bias < 68 and self._bias_consigliato != ("post", bias):
+            if not self._bias_sbil_dal or self._bias_sbil_dal[0] != "post":
+                self._bias_sbil_dal = ("post", self.ora)
+            elif self.ora - self._bias_sbil_dal[1] >= 4.0 and self._puo("brake_bias", 360, t):
+                self._bias_consigliato = ("post", bias)
+                out.append(Messaggio(
+                    "gomme", "brake_bias",
+                    f"Posteriore più sollecitato dell'anteriore: sposta il brake bias avanti di 1 o 2 punti, verso {min(70, bias + 2)}.",
+                    livello=2, ttl=12, creato=t))
+        else:
+            self._bias_sbil_dal = None
 
     # ---------- giro lanciato in qualifica ----------
     def giro_lanciato(self, st):
@@ -376,18 +610,44 @@ class Analisi:
                 continue
             if i == davanti_i and davanti_g is not None and davanti_g < 4:
                 if self._puo(f"overcut{i}", 60, t):
+                    self.soste_coperte[i] = self.ora
                     out.append(Messaggio("strategia", "sosta_altri",
                                          f"{st.nome(i)} si è fermato. Spingi due giri, proviamo l'overcut.",
                                          priorita=2, livello=1, ttl=15, creato=t))
             elif i == dietro_i and dietro_g is not None and dietro_g < 4:
                 if not self._puo(f"copri{i}", 60, t):
                     continue
+                self.soste_coperte[i] = self.ora
                 if usura >= 60:
                     testo = f"{st.nome(i)} si è fermato. Copri l'undercut: box questo giro."
+                    self._box_giro_stint = len(self.mie_soste)
+                    self._box_chiamato = {"giro": n, "motivo": "copri", "bersaglio": i,
+                                          "ora": self.ora, "piano": self.piano_attivo}
                 else:
                     testo = f"{st.nome(i)} si è fermato. Spingi due giri, tieni il passo."
                 out.append(Messaggio("strategia", "sosta_altri", testo, priorita=2, livello=1,
                                      ttl=15, creato=t))
+        uscite = list(stg.uscite)
+        stg.uscite.clear()
+        lap_all = st.get(P.LAP)
+        if lap_all is not None:
+            for i in uscite:
+                if i == idx or mancano <= 2 or i >= len(lap_all.cars):
+                    continue
+                if i in self.soste_coperte and self.ora - self.soste_coperte[i] < 120:
+                    continue
+                c_alt = lap_all.cars[i]
+                if c_alt.car_position > 3 and abs(c_alt.car_position - lap.car_position) > 5:
+                    continue
+                if self.ora - self.ultimo.get(f"uscita_altro_{i}", -1e9) < 90 \
+                        or self.ora - self.ultimo.get("uscita_altro", -1e9) < 15:
+                    continue
+                self._puo(f"uscita_altro_{i}", 90, t)
+                self._puo("uscita_altro", 15, t)
+                gomma = G.NOMI_MESCOLA.get(sta_all.cars[i].visual_tyre_compound) if sta_all is not None else None
+                testo = (f"{st.nome(i)} si è fermato, monta le {gomma}." if gomma
+                         else f"{st.nome(i)} è uscito dai box.")
+                out.append(Messaggio("strategia", "sosta_gomma", testo, priorita=3, livello=2, ttl=12, creato=t))
         if sosta_recente:
             return
 
@@ -401,17 +661,21 @@ class Analisi:
             return
         # undercut sulla macchina davanti
         deg = stg.degrado(idx)
-        if davanti_i is not None and davanti_g is not None and davanti_g < 3.5 and deg and deg >= 0.04 \
-                and sta_all is not None:
+        if ses.safety_car_status == 0 and davanti_i is not None and davanti_g is not None and davanti_g < 3.5 \
+                and deg and deg >= 0.04 and sta_all is not None:
             sua_eta, sua_usura = self.eta_gomme(st, davanti_i)
             if sua_eta >= mia_eta - 1 and sua_eta >= 5:
                 guadagno = deg * sua_eta - 0.8
                 if guadagno > davanti_g + 0.3 and (r["margine_dietro"] is None or r["margine_dietro"] >= 1.0) \
                         and self._puo("undercut", 150, t):
+                    self.soste_coperte[davanti_i] = self.ora
+                    self._box_giro_stint = len(self.mie_soste)
+                    self._box_chiamato = {"giro": n, "motivo": "undercut", "bersaglio": davanti_i,
+                                          "ora": self.ora, "piano": self.piano_attivo}
                     sue = f" Ha le gomme al {pct(sua_usura)}." if sua_usura is not None else ""
                     out.append(Messaggio(
                         "strategia", "undercut",
-                        f"Undercut su {st.nome(davanti_i)}: box adesso.{sue} Stimiamo {dec(guadagno)} secondi "
+                        f"Box per undercut su {st.nome(davanti_i)}.{sue} Stimiamo {dec(guadagno)} secondi "
                         f"di vantaggio con le gomme nuove.", priorita=2, livello=1, ttl=15, creato=t))
                     return
         # dove esci, una volta a giro a metà giro
@@ -482,6 +746,16 @@ class Analisi:
             peggiori = sorted((c for c in curve if c["perdita_media_s"]), key=lambda c: -c["perdita_media_s"])[:3]
             out["guida"] = {"curve": curve, "dove_perdi": peggiori, "numerazione": self.numerazione,
                             "sistemate": sorted(self.sistemate)}
+        # confronto con compagno di squadra o riferimento più veloce
+        player_c = self.rif[1] if self.rif is not None else (self.giri[-1][1] if self.giri else None)
+        mio_best = self.rif[0]["tempo_ms"] if self.rif is not None else None
+        conf_ext = self.rif_ext.riassunto(st, idx, player_c, self.curve, self.numerazione, mio_best)
+        if conf_ext is not None:
+            out["confronto_riferimento"] = conf_ext
+        # stacco partenza
+        stacco = self.stacco.chiudi()
+        if stacco is not None:
+            out["stacco_partenza"] = stacco
         # assetto
         if self.imp["assetto"] and idx is not None:
             puliti = [c for m, c in self.giri if m["valido"] and not m.get("box") and not m.get("safety_car")]
@@ -495,7 +769,14 @@ class Analisi:
             deg = self.strategia.degrado(idx, ultimo_stint=False) if idx is not None else None
             out["strategia"] = {"perdita_box_s": perdita, "misurata": misurata,
                                 "misure_in_questa_gara": self.strategia.misure,
-                                "degrado_s_per_giro": round(deg, 3) if deg is not None else None}
+                                "degrado_s_per_giro": round(deg, 3) if deg is not None else None,
+                                "piano_attivo": self.piano_attivo}
+            if self.piani_gara and self.piani_gara.get("piani"):
+                out["strategia"]["piani"] = self.piani_gara["piani"]
+            if self.ultimo_target_lap is not None:
+                out["strategia"]["target_lap_ms"] = self.ultimo_target_lap["target_ms"]
+                out["strategia"]["target_lap"] = fmt(self.ultimo_target_lap["target_ms"])
+                out["strategia"]["target_lap_giro"] = self.ultimo_target_lap["ideale"]
         # ali mobili
         if st.formato == 2026:
             giri_ali = []

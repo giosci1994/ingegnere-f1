@@ -28,11 +28,36 @@ button { font: inherit; cursor: pointer; }
 .grande.collegato { background: #123d24; color: var(--verde); box-shadow: none; border: 2px solid var(--verde); }
 .nota { color: var(--tenue); font-size: 14px; }
 .avviso { color: var(--giallo); }
-.cruscotto { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 16px; }
+.cruscotto { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
 .cella { background: var(--pannello); border: 1px solid var(--bordo); border-radius: 12px; padding: 10px 8px; text-align: center; min-width: 0; }
-.cella .eti { display: block; font-size: 11px; color: var(--tenue); text-transform: uppercase; }
+.cella .eti, .delta-testo .eti, .ers-testa .eti { display: block; font-size: 11px; color: var(--tenue); text-transform: uppercase; }
 .cella b { font-size: 22px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
 @media (max-width: 380px) { .cruscotto { grid-template-columns: repeat(2, 1fr); } }
+.delta-box, .ers-box, .piano-box { background: var(--pannello); border: 1px solid var(--bordo); border-radius: 12px; padding: 10px 12px; margin-top: 12px; }
+.delta-testo, .ers-testa, .piano-testa { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.piano-testa .eti { display: block; font-size: 11px; color: var(--tenue); text-transform: uppercase; }
+.piano-testa b { font-size: 16px; color: var(--verde); }
+.piano-box[hidden] { display: none; }
+.delta-testo b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.delta-testo b.veloce { color: var(--verde); } .delta-testo b.lento { color: var(--rosso); }
+.delta-barra { position: relative; height: 10px; background: var(--sfondo); border: 1px solid var(--bordo); border-radius: 99px; overflow: hidden; }
+.delta-centro { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--tenue); z-index: 1; }
+.delta-fill { position: absolute; top: 0; bottom: 0; width: 0; transition: width .2s, left .2s; }
+.delta-fill.veloce { background: var(--verde); } .delta-fill.lento { background: var(--rosso); }
+.ers-badge { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--testo); }
+.ers-badge.pronto { color: var(--blu); } .ers-badge.attivo { color: var(--verde); }
+.ers-barra { height: 10px; background: var(--sfondo); border: 1px solid var(--bordo); border-radius: 99px; overflow: hidden; }
+.ers-fill { height: 100%; width: 0; background: var(--verde); transition: width .2s; }
+.ers-fill.basso { background: var(--rosso); } .ers-fill.attivo { background: var(--blu); }
+.ruote { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+.ruota { background: var(--pannello); border: 1px solid var(--bordo); border-radius: 10px; padding: 8px 10px; text-align: center; min-width: 0; }
+.ruota .r-eti { display: block; font-size: 11px; color: var(--tenue); font-weight: 700; letter-spacing: .05em; }
+.ruota .r-usura { display: block; font-size: 19px; font-variant-numeric: tabular-nums; margin: 2px 0; }
+.ruota .r-usura.avviso { color: var(--giallo); } .ruota .r-usura.critico { color: var(--rosso); }
+.ruota .r-temp { display: block; font-size: 12px; color: var(--tenue); font-variant-numeric: tabular-nums; }
+.ruota .r-temp.caldo { color: var(--rosso); } .ruota .r-temp.freddo { color: var(--blu); }
+.ruota .r-blister { display: block; font-size: 11px; font-weight: 700; color: var(--giallo); margin-top: 2px; }
+.ruota .r-blister:empty { display: none; }
 .frasi { list-style: none; padding: 0; margin: 0; }
 .frasi li { background: var(--pannello); border-left: 4px solid var(--bordo); border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; font-size: 18px; }
 .frasi li small { display: block; color: var(--tenue); font-size: 12px; }
@@ -116,8 +141,10 @@ main, .blocco, .griglia > * { min-width: 0; }
   header { padding: 6px 16px; } .logo { font-size: 22px; } h1 { font-size: 17px; }
   nav button { padding: 8px 6px; min-height: 40px; }
   .grande { padding: 12px; font-size: 18px; }
-  .cruscotto { grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
+  .cruscotto { grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
   .cella { padding: 6px; } .cella b { font-size: 18px; }
+  .delta-box, .ers-box { padding: 6px 10px; margin-top: 8px; }
+  .ruote { gap: 6px; margin-top: 6px; } .ruota { padding: 6px 8px; } .ruota .r-usura { font-size: 16px; }
   .frasi li { font-size: 16px; padding: 8px 10px; }
   .mappa { max-height: 85vh; margin-left: auto; margin-right: auto; }
 }
@@ -174,3 +201,22 @@ main, .blocco, .griglia > * { min-width: 0; }
 .livello b { color: var(--testo); }
 .livello.attivo { border-left-color: var(--rosso); }
 .livello.spento { opacity: 0.6; }
+
+/* pre-gara: griglia responsiva e schede Piano A / B / C */
+.pregara-scelta { margin-top: 0; }
+.pregara-griglia { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin-top: 12px; }
+.pregara-griglia[hidden] { display: none; }
+.pregara-griglia .scheda { margin-top: 0; min-width: 0; }
+.piani-riga { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin-top: 10px; }
+.piano-card { background: var(--sfondo); border: 1px solid var(--bordo); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+.piano-card.attivo { border-color: var(--verde); box-shadow: inset 0 0 0 1px rgba(47, 211, 107, .25); }
+.piano-card-testa { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; }
+.piano-badge { font-size: 11px; font-weight: 700; color: #072210; background: var(--verde); border-radius: 99px; padding: 2px 8px; }
+.piano-meta { font-size: 13px; color: var(--tenue); margin: 4px 0; }
+.piano-card p { margin: 4px 0; font-size: 14px; }
+#pg-pista { min-height: 44px; }
+@media (min-width: 700px) {
+  .pregara-griglia { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+  .pregara-griglia .largo2 { grid-column: span 2; }
+  .piani-riga { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
