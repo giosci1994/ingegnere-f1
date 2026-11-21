@@ -24,7 +24,6 @@ import time
 import types
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "app"))
-os.environ.setdefault("DATI", tempfile.mkdtemp())
 from ingegnere import curve as C  # noqa: E402
 from ingegnere import domande as D  # noqa: E402
 from ingegnere import numeri_curve as N  # noqa: E402
@@ -36,7 +35,7 @@ from ingegnere.radio import Radio  # noqa: E402
 from ingegnere.registratore import Registratore, leggi  # noqa: E402
 
 try:
-    from ingegnere.server import App  # noqa: E402
+    from ingegnere import server as SRV  # noqa: E402
 except ModuleNotFoundError:
     _web = types.SimpleNamespace(
         json_response=lambda d, **kw: types.SimpleNamespace(text=json.dumps(d, ensure_ascii=False)),
@@ -45,7 +44,8 @@ except ModuleNotFoundError:
     )
     sys.modules.setdefault("aiohttp", types.SimpleNamespace(web=_web, WSMsgType=types.SimpleNamespace()))
     sys.modules.setdefault("numpy", types.SimpleNamespace())
-    from ingegnere.server import App  # noqa: E402
+    from ingegnere import server as SRV  # noqa: E402
+App = SRV.App
 
 problemi = []
 
@@ -85,7 +85,13 @@ def tasti():
     controlla(domande[0] == "strategia" and domande[3] is None,
               f"UDP Action 1 → strategia, la 12 senza domanda (di partenza): {domande}")
 
-    app = App()
+    with tempfile.TemporaryDirectory() as tmp_dati:
+        vecchio_dati = SRV.DATI
+        SRV.DATI = tmp_dati
+        try:
+            app = App()
+        finally:
+            SRV.DATI = vecchio_dati
     radio = Radio(1, app.voce, app.imp, lambda s, d: None, app.stato.tempo)
     app.radio = {1: radio}
     app.stato.reset(0x1234)
