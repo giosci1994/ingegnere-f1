@@ -605,8 +605,10 @@ class Analisi:
         davanti_g = st.distacco_davanti(idx)
 
         # le soste degli altri (all'entrata in pit lane): overcut o copertura
+        ch = self._box_chiamato
+        box_pioggia = ch is not None and ch.get("giro") == n and ch.get("motivo") == "pioggia"
         for i in nuove_soste:
-            if i == idx or sosta_recente or mancano <= 3:
+            if i == idx or sosta_recente or mancano <= 3 or box_pioggia:
                 continue
             if i == davanti_i and davanti_g is not None and davanti_g < 4:
                 if self._puo(f"overcut{i}", 60, t):
@@ -667,7 +669,7 @@ class Analisi:
             if sua_eta >= mia_eta - 1 and sua_eta >= 5:
                 guadagno = deg * sua_eta - 0.8
                 if guadagno > davanti_g + 0.3 and (r["margine_dietro"] is None or r["margine_dietro"] >= 1.0) \
-                        and self._puo("undercut", 150, t):
+                        and not box_pioggia and self._puo("undercut", 150, t):
                     self.soste_coperte[davanti_i] = self.ora
                     self._box_giro_stint = len(self.mie_soste)
                     self._box_chiamato = {"giro": n, "motivo": "undercut", "bersaglio": davanti_i,

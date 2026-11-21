@@ -191,6 +191,9 @@ def box_sc(an, out, t, st, ses, lap, idx):
     n = lap.current_lap_num
     if getattr(an, "_sc_soppresso", None) == n:
         return
+    ch = getattr(an, "_box_chiamato", None)
+    if ch is not None and ch.get("giro") == n and ch.get("motivo") == "pioggia":
+        return
     mancano = ses.total_laps - n + 1 if ses.total_laps else 99
     if lap.pit_status or n < 2 or mancano <= 3 or (an.mie_soste and n - an.mie_soste[-1] < 5):
         return
@@ -440,6 +443,23 @@ def target_lap_avviso(an, out, t, st, ses, lap, idx, giro_finito):
 
 
 # ---------- piano A/B/C e chiamate box / resta fuori ----------
+def _box_pioggia(an, out, t, ses, n):
+    """«Box questo giro, intermedie / gomme da bagnato.» con la pioggia già in pista e le slick:
+    una volta per stint, sostituisce la chiamata box aperta (motivo «pioggia»: niente doppioni)."""
+    if getattr(an, "_box_pioggia_stint", -1) == len(an.mie_soste):
+        return False
+    if not an._puo("box_pioggia", 60, t):
+        return False
+    mesc = "gomme da bagnato" if ses.weather >= 4 else "intermedie"
+    an._box_pioggia_stint = len(an.mie_soste)
+    an._box_giro_stint = len(an.mie_soste)
+    an._box_chiamato = {"giro": n, "motivo": "pioggia", "bersaglio": None, "ora": an.ora, "piano": "C"}
+    out.append(Messaggio(
+        "box", "box_pioggia", f"Box questo giro, {mesc}.",
+        priorita=1, livello=1, ttl=12, interrompe=True, creato=t, fisso=True))
+    return True
+
+
 def aggiorna_piani(an, out, t, st, ses, lap, idx, nuove_soste):
     """Calcola Piano A/B/C in sessione, gestisce i cambi di piano e le chiamate box / resta fuori."""
     if not st.in_gara() or ses is None or lap is None:
@@ -544,7 +564,11 @@ def aggiorna_piani(an, out, t, st, ses, lap, idx, nuove_soste):
     if nuovo != attivo:
         an.piano_attivo = nuovo
         piani_dati["attivo"] = nuovo
-        if ch is not None and ch.get("giro") == n and nuovo == "C" and piani_dati["piani"]["C"].get("pioggia"):
+        if pioggia_ora and slick_ora and nuovo == "C" and ch is not None and ch.get("giro") == n:
+            # pioggia già in pista: non «Resta fuori» (il Piano C dice di fermarsi subito), ma box per le gomme giuste
+            if _box_pioggia(an, out, t, ses, n):
+                return
+        elif ch is not None and ch.get("giro") == n and nuovo == "C" and piani_dati["piani"]["C"].get("pioggia"):
             an._box_chiamato = None
             if an._puo("resta_fuori", 25, t):
                 out.append(Messaggio(
@@ -557,6 +581,11 @@ def aggiorna_piani(an, out, t, st, ses, lap, idx, nuove_soste):
                 "strategia", "piano_strategia",
                 f"Passiamo al Piano {nuovo}, {motivo}.",
                 priorita=2, livello=2, ttl=15, creato=t))
+
+    # 2b. Pioggia in pista con le slick e Piano C pioggia attivo: box questo giro, una volta per stint
+    if pioggia_ora and slick_ora and an.piano_attivo == "C" and piani_dati["piani"]["C"].get("pioggia"):
+        if _box_pioggia(an, out, t, ses, n):
+            return
 
     # 3. Chiamata esplicita «Box questo giro» sul giro target del piano attivo
     piano = piani_dati["piani"].get(an.piano_attivo) or {}

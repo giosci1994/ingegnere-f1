@@ -100,6 +100,8 @@ FRASI_FISSE = [
     "È anche il giro più veloce della gara. Grande.",
     "Inizia a piovere. Valuta le intermedie.",
     "La pista si sta asciugando. Valuta le slick.",
+    "Box questo giro, intermedie.",
+    "Box questo giro, gomme da bagnato.",
     "Gomme fredde. Scaldale.",
     "Freni caldi. Gestisci in frenata.",
     "Guasto all'ERS. Ti diamo istruzioni.",

@@ -4,6 +4,19 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.6.1] - 2026-11-21
+
+### Fixed
+- **Rain already on track with slicks**: switching to the rain Plan C while a pit call was open
+  said "Stay out", contradicting Plan C (pit now for intermediates). It now calls
+  "Box this lap, intermediates." (or full wets when the weather is heavy rain), once per stint,
+  and marks the open pit call as a rain call so undercut, cover/overcut and SC/VSC pit calls do
+  not repeat it in the same lap. "Stay out" for rain only forecast is unchanged.
+
+### Tests
+- `prova_fase6.py`: rain already on track, slicks, pit call open -> intermediates call, no
+  "Stay out", not repeated.
+
 ## [0.6.0] - 2026-11-21
 
 Phase 6 (Block 1 + Block 2): richer live dashboard, proactive race/telemetry calls, dynamic

@@ -687,6 +687,28 @@ def test_piani_e_chiamate_box():
     controlla(an2.piano_attivo == "C" and any(m.chiave == "resta_fuori" and "Piano C" in m.testo for m in out_c),
               f"Piano C + Resta fuori per pioggia in arrivo: {[m.testo for m in out_c]}")
 
+    # Piove già, slick, box aperto -> niente «Resta fuori», chiamata box per le intermedie (una volta sola)
+    an3 = Analisi(imp, Biblioteca(os.path.join(tmp, "giri3")), Piste(os.path.join(tmp, "piste3.json")))
+    an3._box_chiamato = {"giro": 8, "motivo": "piano", "bersaglio": None, "ora": 600.0, "piano": "A"}
+    meteo_prima = ses.weather
+    ses.weather = 3
+    an3.ora = 600.0
+    out_w = []
+    G.aggiorna_piani(an3, out_w, 600.0, st, ses, lap.cars[0], 0, [])
+    controlla(an3.piano_attivo == "C"
+              and any(m.chiave == "box_pioggia" and m.testo == "Box questo giro, intermedie." for m in out_w)
+              and not any("Resta fuori" in m.testo for m in out_w)
+              and (an3._box_chiamato or {}).get("motivo") == "pioggia",
+              f"piove già: box per le intermedie, niente Resta fuori: {[m.testo for m in out_w]}")
+    an3.ora = 600.2
+    out_w2 = []
+    an3._strategia(out_w2, 600.2, st, ses, lap.cars[0], 0, [])
+    G.aggiorna_piani(an3, out_w2, 600.2, st, ses, lap.cars[0], 0, [])
+    G.box_sc(an3, out_w2, 600.2, st, ses, lap.cars[0], 0)
+    controlla(not any(m.categoria == "box" or m.chiave in ("undercut", "box_sc", "resta_fuori") for m in out_w2),
+              f"chiamata pioggia non ripetuta e senza doppioni: {[m.testo for m in out_w2]}")
+    ses.weather = meteo_prima
+
 
 def test_compagno_e_riferimento():
     print("== 14. confronto compagno di squadra / avversario più veloce")

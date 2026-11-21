@@ -121,6 +121,7 @@ ETICHETTE = {
     "strategia:piano_strategia": "cambio piano di strategia (A, B, C)",
     "strategia:resta_fuori": "chiamata «resta fuori» se cambia la situazione",
     "box:box_questo_giro": "chiamata «box questo giro» sul giro target",
+    "box:box_pioggia": "chiamata «box questo giro» per intermedie o bagnato con la pioggia in pista",
     "guida:confronto_ext": "consigli di guida dal confronto con compagno o leader",
 }
 
