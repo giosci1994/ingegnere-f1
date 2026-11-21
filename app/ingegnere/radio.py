@@ -61,6 +61,10 @@ class Radio:
         self.coda.clear()
         self.tenuti.clear()
 
+    def svuota_categoria(self, categoria):
+        self.coda = [m for m in self.coda if m.categoria != categoria]
+        self.tenuti = [m for m in self.tenuti if m.categoria != categoria]
+
     def zitto(self, secondi=30.0):
         """Il tasto del silenzio: zitta per `secondi`; premuto di nuovo, riaccende. Restituisce i
         secondi di silenzio (0 = riaccesa)."""

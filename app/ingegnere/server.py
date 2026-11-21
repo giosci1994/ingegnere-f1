@@ -108,7 +108,7 @@ class App:
         if pk.id == P.EVENT and pk.dati is not None:
             code = P.codice_evento(pk)
             if code == "BUTN":
-                self.domande(pk.dati.details.buttons.button_status)
+                self.domande(pk.dati.details.buttons.button_status, h.session_uid)
                 return
             for slot, ing in self.ing.items():
                 self.radio[slot].metti(ing.evento(self.stato, pk))
@@ -121,9 +121,24 @@ class App:
                 self.finale_salvata = self.stato.session_uid
                 self.chiudi_sessione("classifica finale")
 
-    def domande(self, stato_tasti):
+    def _fuori_pista(self, session_uid=None):
+        if session_uid == 0:
+            return True
+        ses = self.stato.sessione()
+        if ses is None or bool(ses.game_paused):
+            return True
+        idx = self.stato.indice()
+        if idx is None:
+            return True
+        lap = self.stato.auto(P.LAP, idx)
+        return lap is None or lap.driver_status == 0
+
+    def domande(self, stato_tasti, session_uid=None):
         """UDP Action 1–12 appena premute → la risposta alla domanda assegnata a quel tasto."""
-        for n in self.tasti.premuti(stato_tasti, self.imp):
+        premuti = self.tasti.premuti(stato_tasti, self.imp)
+        if self._fuori_pista(session_uid):
+            return
+        for n in premuti:
             domanda = self.imp["tasti"].get(str(n))
             if not domanda or not self.stato.connesso(5):
                 continue
@@ -171,6 +186,9 @@ class App:
             try:
                 if not self.stato.connesso(5):
                     continue
+                if self._fuori_pista():
+                    for r in self.radio.values():
+                        r.svuota_categoria("domande")
                 for slot, ing in self.ing.items():
                     msgs = ing.valuta(self.stato)
                     rie = ing.riepilogo_giro(self.imp, self.stato.tempo())

@@ -4,6 +4,20 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.6.2] - 2026-11-21
+
+### Fixed
+- **UDP Action questions in menus/pause/garage**: `App.domande` now ignores UDP Action presses
+  when off track (`session_uid == 0`, `game_paused == 1`, or `driver_status == 0`), while still
+  updating button state for web diagnostics.
+- **Queued questions cleared off track**: `Radio.svuota_categoria("domande")` clears pending
+  question replies from both the active queue and held messages when entering pause or garage.
+
+### Tests
+- `prova_fase3.py`: added tests for off-track UDP Action filtering (`session_uid == 0`,
+  `game_paused`, `driver_status == 0` vs on-track `driver_status == 4`) and
+  `Radio.svuota_categoria("domande")`.
+
 ## [0.6.1] - 2026-11-21
 
 ### Fixed

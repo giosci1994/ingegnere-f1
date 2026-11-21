@@ -20,15 +20,32 @@ import json
 import os
 import sys
 import tempfile
+import time
+import types
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "app"))
+os.environ.setdefault("DATI", tempfile.mkdtemp())
 from ingegnere import curve as C  # noqa: E402
 from ingegnere import domande as D  # noqa: E402
 from ingegnere import numeri_curve as N  # noqa: E402
 from ingegnere import pacchetti as P  # noqa: E402
 from ingegnere.impostazioni import Impostazioni  # noqa: E402
+from ingegnere.ingegnere import Messaggio  # noqa: E402
 from ingegnere.pronuncia import Pronuncia  # noqa: E402
+from ingegnere.radio import Radio  # noqa: E402
 from ingegnere.registratore import Registratore, leggi  # noqa: E402
+
+try:
+    from ingegnere.server import App  # noqa: E402
+except ModuleNotFoundError:
+    _web = types.SimpleNamespace(
+        json_response=lambda d, **kw: types.SimpleNamespace(text=json.dumps(d, ensure_ascii=False)),
+        HTTPNotFound=RuntimeError,
+        HTTPBadRequest=RuntimeError,
+    )
+    sys.modules.setdefault("aiohttp", types.SimpleNamespace(web=_web, WSMsgType=types.SimpleNamespace()))
+    sys.modules.setdefault("numpy", types.SimpleNamespace())
+    from ingegnere.server import App  # noqa: E402
 
 problemi = []
 
@@ -67,6 +84,69 @@ def tasti():
     controlla(uscite == [[1], [], [], [1, 12], []], f"fronte di salita: {uscite}")
     controlla(domande[0] == "strategia" and domande[3] is None,
               f"UDP Action 1 → strategia, la 12 senza domanda (di partenza): {domande}")
+
+    app = App()
+    radio = Radio(1, app.voce, app.imp, lambda s, d: None, app.stato.tempo)
+    app.radio = {1: radio}
+    app.stato.reset(0x1234)
+    app.stato.formato = 2026
+    app.stato.giocatore = 0
+    app.stato.ultimo_pacchetto = time.monotonic()
+    S = P.STRUTTURE[2026]
+    ses = S[P.SESSION]()
+    ses.header.packet_format, ses.header.packet_id, ses.header.session_uid = 2026, P.SESSION, 0x1234
+    ses.session_type = 15
+    ses.track_id = 6
+    ses.total_laps = 20
+    ses.session_time_left = 600
+    ses.game_paused = 0
+    app.stato.p[P.SESSION] = P.Pacchetto(P.SESSION, 2026, ses.header, ses)
+    lap = S[P.LAP]()
+    lap.header.packet_format, lap.header.packet_id, lap.header.session_uid = 2026, P.LAP, 0x1234
+    lap.cars[0].current_lap_num = 3
+    lap.cars[0].driver_status = 4
+    app.stato.p[P.LAP] = P.Pacchetto(P.LAP, 2026, lap.header, lap)
+
+    a9 = 0x00100000 << 8   # silenzio di partenza
+    controlla(app._fuori_pista(0) is True, "_fuori_pista True con session_uid == 0")
+    app.domande(a1 | a9, 0)
+    controlla(app.tasti.prima == (a1 | a9) and not radio.coda and not radio.zitta(),
+              "domande() con session_uid == 0 aggiorna tasti ma ignora risposta e silenzio")
+    app.domande(0, 0x1234)
+
+    ses.game_paused = 1
+    controlla(app._fuori_pista(0x1234) is True, "_fuori_pista True con game_paused == 1")
+    app.domande(a1 | a9, 0x1234)
+    controlla(not radio.coda and not radio.zitta(),
+              "domande() con game_paused == 1 ignora risposta e silenzio")
+    app.domande(0, 0x1234)
+
+    ses.game_paused = 0
+    lap.cars[0].driver_status = 0
+    controlla(app._fuori_pista(0x1234) is True, "_fuori_pista True con driver_status == 0 (garage)")
+    app.domande(a1 | a9, 0x1234)
+    controlla(not radio.coda and not radio.zitta(),
+              "domande() in garage (driver_status == 0) ignora risposta e silenzio")
+    app.domande(0, 0x1234)
+
+    lap.cars[0].driver_status = 4
+    controlla(app._fuori_pista(0x1234) is False, "_fuori_pista False in pista (driver_status == 4)")
+    app.domande(a1, 0x1234)
+    controlla(len(radio.coda) == 1 and radio.coda[0].categoria == "domande",
+              f"domande() in pista accoda la risposta: {[m.categoria for m in radio.coda]}")
+
+    radio.coda = [
+        Messaggio("domande", "d1", "domanda 1", priorita=2, livello=1, ttl=10, creato=1),
+        Messaggio("gomme", "g1", "gomme ok", priorita=3, livello=1, ttl=10, creato=1),
+        Messaggio("domande", "d2", "domanda 2", priorita=2, livello=1, ttl=10, creato=1),
+    ]
+    radio.tenuti = [
+        Messaggio("domande", "d3", "domanda 3", priorita=2, livello=1, ttl=10, creato=1),
+        Messaggio("box", "b1", "box box", priorita=2, livello=1, ttl=10, creato=1),
+    ]
+    radio.svuota_categoria("domande")
+    controlla([m.chiave for m in radio.coda] == ["g1"] and [m.chiave for m in radio.tenuti] == ["b1"],
+              f"svuota_categoria('domande') rimuove solo 'domande': coda={[m.chiave for m in radio.coda]} tenuti={[m.chiave for m in radio.tenuti]}")
 
 
 def registratore():
