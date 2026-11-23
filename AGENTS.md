@@ -17,7 +17,7 @@ Read `README.md` first. If a local, untracked `SCHELETRO.md` exists next to this
 | Server | `app/ingegnere/server.py` | asyncio + aiohttp: UDP, 5 Hz engineer loop, REST, WebSocket `/ws` |
 | Tools | `registratore.py`, `riproduci.py`, `simulatore.py` | record, replay, generate a fake session |
 | Page | `web/` | single-page app, Italian UI |
-| Showcase | `docs/` | landing page (EN/IT, `data-en`/`data-it` + `js/main.js`) and `social-preview.html` → `social-preview.png` (1280×640, Firefox headless screenshot) |
+| Showcase | `docs/` | landing page (EN/IT, `data-en`/`data-it` + `js/main.js`; light/dark via `prefers-color-scheme`; scroll reveals with Motion 14.10.1 from jsDelivr, pinned with SRI and optional) and `social-preview.html` → `social-preview.png` (1280×640, Firefox headless screenshot) |
 | CI | `.github/workflows/build.yml` | builds the image and runs the offline tests inside it on simulator races; keep it green. Update `CHANGELOG.md` with every change |
 | Tests | `prove/` | `prova_pacchetti.py`, `prova_offline.py`, `prova_fase3.py`, `ascolta.py` (fake phone), `pagina.py` (real Firefox at 375, 768, 1024, 1440 px and 844×390: no JS errors, no horizontal scroll, touch targets ≥ 40 px) |
 

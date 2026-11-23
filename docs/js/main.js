@@ -48,20 +48,41 @@ document.addEventListener('DOMContentLoaded', () => {
   const year = document.getElementById('year');
   if (year) year.textContent = new Date().getFullYear();
 
-  // Scroll reveal (Arborae standard)
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const reveals = document.querySelectorAll('.reveal');
-  if (reduceMotion || !('IntersectionObserver' in window)) {
-    reveals.forEach((el) => el.classList.add('visible'));
-  } else {
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('visible');
-          io.unobserve(entry.target);
-        }
+  // Entrance with Motion (motion.dev), optional. The head script hides .reveal only while Motion is
+  // expected; it gives up after 1.5 s, and a failed load shows everything at once.
+  let started = false;
+  window.__startMotion = () => {
+    if (started) return;
+    started = true;
+    const M = window.Motion;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    clearTimeout(window.__revealTimer);
+    if (!M || !M.animate || !M.inView || reduceMotion || !root.classList.contains('motion-ready')) {
+      root.classList.remove('motion-ready');
+      return;
+    }
+    const ease = [0.22, 1, 0.36, 1];
+    const items = Array.from(document.querySelectorAll('.reveal'));
+    // Hand the hidden start from the class to inline styles, then fade and rise each block as it enters.
+    // Blocks entering together get a small stagger (50 ms, at most six steps).
+    items.forEach((el) => { el.style.opacity = '0'; });
+    root.classList.remove('motion-ready');
+    let batch = 0;
+    let batchTimer = null;
+    try {
+      items.forEach((el) => {
+        M.inView(el, () => {
+          const delay = Math.min(batch, 5) * 0.05;
+          batch += 1;
+          clearTimeout(batchTimer);
+          batchTimer = setTimeout(() => { batch = 0; }, 120);
+          M.animate(el, { opacity: [0, 1], transform: ['translateY(8px)', 'translateY(0px)'] },
+            { duration: 0.4, delay, ease });
+        }, { amount: 0.2 });
       });
-    }, { threshold: 0.12 });
-    reveals.forEach((el) => io.observe(el));
-  }
+    } catch (e) {
+      items.forEach((el) => { el.style.opacity = ''; el.style.transform = ''; });
+    }
+  };
+  if (window.Motion) window.__startMotion();
 });

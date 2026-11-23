@@ -6,7 +6,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#f7f8f7" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#070b0a" />
+  <meta name="color-scheme" content="dark light" />
   <meta name="description"
     content="A home-made race engineer for EA SPORTS F1 25: it reads the UDP telemetry and talks to you in Italian, with a team-radio effect, on a web app for your phone. Local, in one Docker container."
     data-en="A home-made race engineer for EA SPORTS F1 25: it reads the UDP telemetry and talks to you in Italian, with a team-radio effect, on a web app for your phone. Local, in one Docker container."
@@ -22,28 +24,55 @@
   <meta property="og:image" content="https://giosci1994.github.io/ingegnere-f1/social-preview.png" />
   <meta name="twitter:card" content="summary_large_image" />
   <link rel="icon"
-    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%A7%3C/text%3E%3C/svg%3E" />
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-1 -2 20 20'%3E%3Cg fill='%2300b585'%3E%3Crect x='0' y='5' width='2' height='6' rx='1'/%3E%3Crect x='4' y='2' width='2' height='12' rx='1'/%3E%3Crect x='8' y='0' width='2' height='16' rx='1'/%3E%3Crect x='12' y='3.5' width='2' height='9' rx='1'/%3E%3Crect x='16' y='6' width='2' height='4' rx='1'/%3E%3C/g%3E%3C/svg%3E" />
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
     rel="stylesheet">
+  <script>
+    /* Entrance only when motion is allowed. If Motion does not load within 1.5 s, nothing stays hidden. */
+    (function () {
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      var root = document.documentElement;
+      root.classList.add('motion-ready');
+      window.__revealTimer = setTimeout(function () { root.classList.remove('motion-ready'); }, 1500);
+    })();
+  </script>
   <link rel="stylesheet" href="./css/style.css" />
   <script src="./js/main.js" defer></script>
+  <!-- Optional motion (motion.dev), loaded async: the page works the same without it -->
+  <script async src="https://cdn.jsdelivr.net/npm/motion@14.10.1/dist/motion.js"
+    integrity="sha384-lnXs/o2QVHbH7aNA9JGkcMdW38AWVgMHWWrPU/fGgHi+eRj2j0a8va/1nlijpjHX" crossorigin="anonymous"
+    onload="window.__startMotion &amp;&amp; window.__startMotion()"
+    onerror="document.documentElement.classList.remove('motion-ready')"></script>
 </head>
 
 <body>
-  <div class="bg">
-    <div class="bg-grid"></div>
-  </div>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <symbol id="wave-mark" viewBox="0 0 18 16"><rect x="0" y="5" width="2" height="6" rx="1" fill="currentColor"/><rect x="4" y="2" width="2" height="12" rx="1" fill="currentColor"/><rect x="8" y="0" width="2" height="16" rx="1" fill="currentColor"/><rect x="12" y="3.5" width="2" height="9" rx="1" fill="currentColor"/><rect x="16" y="6" width="2" height="4" rx="1" fill="currentColor"/></symbol>
+    <symbol id="wave-live" viewBox="0 0 110 16"><rect x="0" y="6" width="2" height="4" rx="1" fill="currentColor"/><rect x="4" y="5" width="2" height="6" rx="1" fill="currentColor"/><rect x="8" y="3" width="2" height="10" rx="1" fill="currentColor"/><rect x="12" y="1" width="2" height="14" rx="1" fill="currentColor"/><rect x="16" y="3.5" width="2" height="9" rx="1" fill="currentColor"/><rect x="20" y="2" width="2" height="12" rx="1" fill="currentColor"/><rect x="24" y="0" width="2" height="16" rx="1" fill="currentColor"/><rect x="28" y="2.5" width="2" height="11" rx="1" fill="currentColor"/><rect x="32" y="4.5" width="2" height="7" rx="1" fill="currentColor"/><rect x="36" y="1.5" width="2" height="13" rx="1" fill="currentColor"/><rect x="40" y="0.5" width="2" height="15" rx="1" fill="currentColor"/><rect x="44" y="3" width="2" height="10" rx="1" fill="currentColor"/><rect x="48" y="5" width="2" height="6" rx="1" fill="currentColor"/><rect x="52" y="3.5" width="2" height="9" rx="1" fill="currentColor"/><rect x="56" y="2" width="2" height="12" rx="1" fill="currentColor"/><rect x="60" y="4" width="2" height="8" rx="1" fill="currentColor"/><rect x="64" y="5.5" width="2" height="5" rx="1" fill="currentColor"/><rect x="68" y="3" width="2" height="10" rx="1" fill="currentColor"/><rect x="72" y="1" width="2" height="14" rx="1" fill="currentColor"/><rect x="76" y="2.5" width="2" height="11" rx="1" fill="currentColor"/><rect x="80" y="4.5" width="2" height="7" rx="1" fill="currentColor"/><rect x="84" y="5.5" width="2" height="5" rx="1" fill="currentColor"/><rect x="88" y="4" width="2" height="8" rx="1" fill="currentColor"/><rect x="92" y="5" width="2" height="6" rx="1" fill="currentColor"/><rect x="96" y="6" width="2" height="4" rx="1" fill="currentColor"/><rect x="100" y="5" width="2" height="6" rx="1" fill="currentColor"/><rect x="104" y="6" width="2" height="4" rx="1" fill="currentColor"/><rect x="108" y="7" width="2" height="2" rx="1" fill="currentColor"/></symbol>
+    <symbol id="i-radio" viewBox="0 0 24 24"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+    <symbol id="i-activity" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+    <symbol id="i-route" viewBox="0 0 24 24"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></symbol>
+    <symbol id="i-gauge" viewBox="0 0 24 24"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></symbol>
+    <symbol id="i-spline" viewBox="0 0 24 24"><circle cx="19" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><path d="M5 17A12 12 0 0 1 17 5"/></symbol>
+    <symbol id="i-clipboard" viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></symbol>
+    <symbol id="i-wind" viewBox="0 0 24 24"><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></symbol>
+    <symbol id="i-house" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+    <symbol id="i-bell-off" viewBox="0 0 24 24"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M17 17H4a1 1 0 0 1-.74-1.673C4.59 13.956 6 12.499 6 8a6 6 0 0 1 .258-1.742"/><path d="m2 2 20 20"/><path d="M8.668 3.01A6 6 0 0 1 18 8c0 2.687.77 4.653 1.707 6.05"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+    <symbol id="i-coffee" viewBox="0 0 24 24"><path d="M10 2v2"/><path d="M14 2v2"/><path d="M6 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/></symbol>
+  </svg>
 
   <header class="nav">
     <div class="container nav-inner">
       <div class="brand">
         <a class="brand-main" href="#top" aria-label="Ingegnere F1">
-          <span class="brand-mark" aria-hidden="true">🎧</span>
+          <span class="brand-mark" aria-hidden="true"><svg class="wave" width="18" height="16"><use href="#wave-mark"/></svg></span>
           <span>Ingegnere F1</span>
         </a>
       </div>
@@ -65,7 +94,7 @@
 
   <main id="top" class="container">
     <section class="hero">
-      <div class="hero-left">
+      <div class="hero-left reveal">
         <div class="kicker">
           <span class="dot"></span>
           <span data-en="F1 25 · UDP telemetry · Local voice" data-it="F1 25 · Telemetria UDP · Voce locale">F1 25 · UDP telemetry · Local voice</span>
@@ -91,7 +120,7 @@
         </div>
 
         <div class="status-note">
-          <span aria-hidden="true">ℹ️</span>
+          <svg class="icon" aria-hidden="true"><use href="#i-info"/></svg>
           <span data-en="<b>Unofficial fan project.</b> Not affiliated with Formula 1, the FIA, Electronic Arts or Codemasters. No logos, fonts, images or audio from the game or the championship."
             data-it="<b>Progetto non ufficiale, di un appassionato.</b> Non affiliato a Formula 1, FIA, Electronic Arts o Codemasters. Nessun logo, carattere, immagine o audio del gioco o del campionato.">
             <b>Unofficial fan project.</b> Not affiliated with Formula 1, the FIA, Electronic Arts or Codemasters.
@@ -109,10 +138,11 @@
         </div>
       </div>
 
-      <div class="hero-right">
+      <div class="hero-right reveal">
         <div class="window app" aria-hidden="true">
           <div class="win-bar">
-            <span class="win-title">📻 Radio · P4 · <span data-en="Lap" data-it="Giro">Lap</span> 12/20</span>
+            <svg class="icon" aria-hidden="true"><use href="#i-radio"/></svg>
+            <span class="win-title">Radio · P4 · <span data-en="Lap" data-it="Giro">Lap</span> 12/20</span>
           </div>
           <div class="app-body">
             <div class="app-side">
@@ -138,20 +168,20 @@
                 <span>Monza</span>
                 <span class="switch"><i></i><span data-en="Radio on" data-it="Radio accesa">Radio on</span></span>
               </div>
-              <div class="result">
-                <span class="g" style="color: var(--bad)">!</span>
-                <div><b data-en="Strategy" data-it="Strategia">Strategy</b><span>«Box questo giro, esci P5 davanti a Verdi.»</span></div>
+              <div class="result live">
+                <span class="g" style="color: var(--bad)" aria-hidden="true"></span>
+                <div><b data-en="Strategy" data-it="Strategia">Strategy</b><span>«Box questo giro, esci P5 davanti a Verdi.»</span><svg class="wave" width="110" height="12" aria-hidden="true"><use href="#wave-live"/></svg></div>
               </div>
               <div class="result">
-                <span class="g" style="color: var(--warn)">◐</span>
+                <span class="g" style="color: var(--warn)" aria-hidden="true"></span>
                 <div><b data-en="Braking" data-it="Frenata">Braking</b><span>«Curva 4, perdi 3 decimi: hai frenato 30 metri prima.»</span></div>
               </div>
               <div class="result">
-                <span class="g" style="color: var(--ok)">✓</span>
+                <span class="g" style="color: var(--ok)" aria-hidden="true"></span>
                 <div><b data-en="Gaps" data-it="Distacchi">Gaps</b><span>«Distacco davanti 1,2. Dietro 2,8.»</span></div>
               </div>
               <div class="result">
-                <span class="g" style="color: var(--win)">i</span>
+                <span class="g" style="color: var(--win)" aria-hidden="true"></span>
                 <div><b data-en="Active aero" data-it="Ali mobili">Active aero</b><span>«Ali in modalità rettilineo!»</span></div>
               </div>
             </div>
@@ -172,7 +202,7 @@
 
       <div class="cards-grid">
         <article class="card reveal">
-          <span class="card-icon">📡</span>
+          <span class="card-icon" aria-hidden="true"><svg class="icon" aria-hidden="true"><use href="#i-activity"/></svg></span>
           <h3 data-en="Live calls" data-it="Avvisi in diretta">Live calls</h3>
           <p data-en="Everything the telemetry knows, said at the right moment." data-it="Tutto quello che sa la telemetria, detto al momento giusto.">Everything the telemetry knows, said at the right moment.</p>
           <ul>
@@ -183,7 +213,7 @@
         </article>
 
         <article class="card reveal">
-          <span class="card-icon">🧮</span>
+          <span class="card-icon" aria-hidden="true"><svg class="icon" aria-hidden="true"><use href="#i-route"/></svg></span>
           <h3 data-en="Strategy" data-it="Strategia">Strategy</h3>
           <p data-en="Pit loss measured on each track, degradation from your clean laps." data-it="Tempo perso al box misurato su ogni pista, degrado dai tuoi giri puliti.">Pit loss measured on each track, degradation from your clean laps.</p>
           <ul>
@@ -194,7 +224,7 @@
         </article>
 
         <article class="card reveal">
-          <span class="card-icon">🏁</span>
+          <span class="card-icon" aria-hidden="true"><svg class="icon" aria-hidden="true"><use href="#i-gauge"/></svg></span>
           <h3 data-en="Braking and exits" data-it="Frenate e uscite">Braking and exits</h3>
           <p data-en="Compared with your best lap, one short call on the next straight." data-it="Confrontate con il tuo giro migliore, una frase breve sul rettilineo dopo.">Compared with your best lap, one short call on the next straight.</p>
           <ul>
@@ -203,22 +233,22 @@
           </ul>
         </article>
 
-        <article class="card reveal">
-          <span class="card-icon">📈</span>
+        <article class="card reveal plain">
+          <span class="card-icon" aria-hidden="true"><svg class="icon" aria-hidden="true"><use href="#i-spline"/></svg></span>
           <h3 data-en="Racing line" data-it="Traiettoria">Racing line</h3>
           <p data-en="Every lap stored as a compact trace. Overlay any two laps of a track, from any session or driver."
             data-it="Ogni giro salvato come traccia compatta. Sovrapponi due giri qualsiasi di una pista, di qualsiasi sessione o pilota.">Every lap stored as a compact trace. Overlay any two laps of a track, from any session or driver.</p>
         </article>
 
-        <article class="card reveal">
-          <span class="card-icon">🔧</span>
+        <article class="card reveal plain">
+          <span class="card-icon" aria-hidden="true"><svg class="icon" aria-hidden="true"><use href="#i-clipboard"/></svg></span>
           <h3 data-en="Session summary" data-it="Riassunto della sessione">Session summary</h3>
           <p data-en="Laps, sectors, ideal lap, stops, errors, and setup hints, each backed by the data point behind it."
             data-it="Giri, settori, giro ideale, soste, errori e consigli d'assetto, ognuno con il dato che lo sostiene.">Laps, sectors, ideal lap, stops, errors, and setup hints, each backed by the data point behind it.</p>
         </article>
 
-        <article class="card reveal">
-          <span class="card-icon">🪽</span>
+        <article class="card reveal plain">
+          <span class="card-icon" aria-hidden="true"><svg class="icon" aria-hidden="true"><use href="#i-wind"/></svg></span>
           <h3 data-en="2026 rules" data-it="Regole 2026">2026 rules</h3>
           <p data-en="UDP format 2026 (24 cars, active aero, Overtake Mode), with 2025 as a fallback."
             data-it="Formato UDP 2026 (24 auto, ali mobili, Overtake Mode), con il 2025 di riserva.">UDP format 2026 (24 cars, active aero, Overtake Mode), with 2025 as a fallback.</p>
@@ -276,8 +306,8 @@ docker compose up -d --build">git clone https://github.com/giosci1994/ingegnere-
 cd ingegnere-f1
 # put the riccardo (x_low) and paola (medium) Piper voices in ./voci
 docker compose up -d --build</code></pre>
-        <p class="hint" data-en="In the game (Settings → Telemetry): UDP on, broadcast off, the server's IP address, port 20777, 20 Hz, UDP format 2026. Then open <code>http://&lt;server-ip&gt;:8777</code> on the phone."
-          data-it="Nel gioco (Impostazioni → Telemetria): UDP attivo, broadcast spento, l'IP del server, porta 20777, 20 Hz, formato UDP 2026. Poi apri <code>http://&lt;ip-del-server&gt;:8777</code> sul telefono.">In the game (Settings → Telemetry): UDP on, broadcast off, the server's IP address, port 20777, 20 Hz, UDP format 2026. Then open <code>http://&lt;server-ip&gt;:8777</code> on the phone.</p>
+        <p class="hint" data-en="In the game (Settings → Telemetry): UDP on, broadcast off, the server's IP address, port 20777, 20 Hz, UDP format 2026. Then open <code>http://&amp;lt;server-ip&amp;gt;:8777</code> on the phone."
+          data-it="Nel gioco (Impostazioni → Telemetria): UDP attivo, broadcast spento, l'IP del server, porta 20777, 20 Hz, formato UDP 2026. Poi apri <code>http://&amp;lt;ip-del-server&amp;gt;:8777</code> sul telefono.">In the game (Settings → Telemetry): UDP on, broadcast off, the server's IP address, port 20777, 20 Hz, UDP format 2026. Then open <code>http://&lt;server-ip&gt;:8777</code> on the phone.</p>
       </div>
     </section>
 
@@ -289,19 +319,19 @@ docker compose up -d --build</code></pre>
 
       <div class="cards-grid">
         <article class="card reveal">
-          <span class="card-icon">🏠</span>
+          <span class="card-icon" aria-hidden="true"><svg class="icon" aria-hidden="true"><use href="#i-house"/></svg></span>
           <h3 data-en="Local only" data-it="Solo in locale">Local only</h3>
           <p data-en="No cloud, no accounts, no analytics. The voice is synthesized on your server; no cloned voices, no broadcast audio."
             data-it="Niente cloud, niente account, niente statistiche. La voce nasce sul tuo server; nessuna voce clonata, nessun audio della TV.">No cloud, no accounts, no analytics. The voice is synthesized on your server; no cloned voices, no broadcast audio.</p>
         </article>
         <article class="card reveal">
-          <span class="card-icon">🔕</span>
+          <span class="card-icon" aria-hidden="true"><svg class="icon" aria-hidden="true"><use href="#i-bell-off"/></svg></span>
           <h3 data-en="Telemetry off" data-it="Telemetria spenta">Telemetry off</h3>
           <p data-en="onnxruntime's usage telemetry is switched off in the image and in the code."
             data-it="La telemetria d'uso di onnxruntime è spenta nell'immagine e nel codice.">onnxruntime's usage telemetry is switched off in the image and in the code.</p>
         </article>
         <article class="card reveal">
-          <span class="card-icon">🔒</span>
+          <span class="card-icon" aria-hidden="true"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg></span>
           <h3 data-en="Home network" data-it="Rete di casa">Home network</h3>
           <p data-en="There is no login: keep ports 8777 and 20777 on your home network, never on the internet."
             data-it="Non c'è login: tieni le porte 8777 e 20777 nella rete di casa, mai su internet.">There is no login: keep ports 8777 and 20777 on your home network, never on the internet.</p>
@@ -322,12 +352,12 @@ docker compose up -d --build</code></pre>
 
   <footer class="container footer">
     <div class="footer-left">
-      <span aria-hidden="true">🎧</span>
+      <svg class="wave" width="18" height="16" aria-hidden="true"><use href="#wave-mark"/></svg>
       <span>© <span id="year">2026</span> giosci1994 · <span data-en="AGPL-3.0 License · unofficial, not affiliated with F1, FIA or EA" data-it="Licenza AGPL-3.0 · non ufficiale, non affiliato a F1, FIA o EA">AGPL-3.0 License · unofficial, not affiliated with F1, FIA or EA</span></span>
     </div>
     <div class="footer-right">
       <a href="https://github.com/giosci1994/ingegnere-f1" target="_blank" rel="noreferrer">GitHub</a>
-      <a href="https://buymeacoffee.com/giosci1994u" target="_blank" rel="noreferrer">☕ Buy Me a Coffee</a>
+      <a href="https://buymeacoffee.com/giosci1994u" target="_blank" rel="noreferrer"><svg class="icon" aria-hidden="true"><use href="#i-coffee"/></svg>Buy Me a Coffee</a>
     </div>
   </footer>
 </body>
